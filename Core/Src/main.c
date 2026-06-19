@@ -91,6 +91,14 @@ const osThreadAttr_t GUI_Task_attributes = {
 /* USER CODE BEGIN PV */
 uint8_t isRevD = 0; /* Applicable only for STM32F429I DISCOVERY REVD and above */
 JoystickState g_joystick = {0};
+
+osMessageQueueId_t Queue1Handle;
+osThreadId_t Task03Handle;
+const osThreadAttr_t Task03_attributes = {
+  .name = "Task03",
+  .stack_size = 256 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -107,6 +115,7 @@ extern void TouchGFX_Task(void *argument);
 
 /* USER CODE BEGIN PFP */
 static void BSP_SDRAM_Initialization_Sequence(SDRAM_HandleTypeDef *hsdram, FMC_SDRAM_CommandTypeDef *Command);
+void StartTask03(void *argument);
 
 
 
@@ -226,6 +235,8 @@ int main(void)
   MX_TouchGFX_PreOSInit();
   /* USER CODE BEGIN 2 */
   MX_ADC1_Init();
+  Queue1Handle = osMessageQueueNew(8, sizeof(uint8_t), NULL);
+  Task03Handle = osThreadNew(StartTask03, NULL, &Task03_attributes);
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -677,6 +688,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /* Configure Outside Button Pin (PG3) as Input with Pull-Up */
+  __HAL_RCC_GPIOG_CLK_ENABLE();
+  GPIO_InitStruct.Pin = GPIO_PIN_3;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
@@ -1004,6 +1022,59 @@ void LCD_Delay(uint32_t Delay)
   HAL_Delay(Delay);
 }
 
+void StartTask03(void *argument)
+{
+  uint8_t command_x = 'N';
+  uint8_t command_y = 'N';
+
+  for(;;)
+  {
+    // Read analog values from PA1 (ADC1 channel 1) and PA2 (ADC1 channel 2)
+    uint16_t adc_x = ADC1_Read(1);
+    uint16_t adc_y = ADC1_Read(2);
+
+    // Determine X command
+    if (adc_x > 3000)
+    {
+      command_x = 'R';
+    }
+    else if (adc_x < 1000)
+    {
+      command_x = 'L';
+    }
+    else
+    {
+      command_x = 'N';
+    }
+
+    // Determine Y command
+    if (adc_y > 3000)
+    {
+      command_y = 'D'; // Down
+    }
+    else if (adc_y < 1000)
+    {
+      command_y = 'U'; // Up
+    }
+    else
+    {
+      command_y = 'N';
+    }
+
+    // Send commands to Queue1Handle
+    if (command_x != 'N')
+    {
+      osMessageQueuePut(Queue1Handle, &command_x, 0, 0);
+    }
+    if (command_y != 'N')
+    {
+      osMessageQueuePut(Queue1Handle, &command_y, 0, 0);
+    }
+
+    osDelay(50);
+  }
+}
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -1019,20 +1090,7 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    // Read Fire button (PA0 - Active High User Button)
-    g_joystick.button = (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) ? 1 : 0;
-    
-    // Read analog values from PA1 (Channel 1) and PA2 (Channel 2)
-    uint16_t x_val = ADC1_Read(1);
-    uint16_t y_val = ADC1_Read(2);
-    
-    // 12-bit ADC range 0..4095. Center is ~2048.
-    g_joystick.left  = (x_val < 1000) ? 1 : 0;
-    g_joystick.right = (x_val > 3000) ? 1 : 0;
-    g_joystick.up    = (y_val < 1000) ? 1 : 0;
-    g_joystick.down  = (y_val > 3000) ? 1 : 0;
-    
-    osDelay(20);
+    osDelay(1000);
   }
   /* USER CODE END 5 */
 }
