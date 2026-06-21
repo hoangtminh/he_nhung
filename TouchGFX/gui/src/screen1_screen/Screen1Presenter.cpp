@@ -21,3 +21,8 @@ void Screen1Presenter::joystickUpdated(bool left, bool right, bool up, bool down
 {
     view.handleJoystick(left, right, up, down, button);
 }
+
+int Screen1Presenter::getNumPlayers() const
+{
+    return model->getNumPlayers();
+}

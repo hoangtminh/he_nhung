@@ -21,9 +21,12 @@ public:
 
     void gotoScreen2ScreenNoTransition();
     void gotoScreen2ScreenNoTransitionImpl();
+    void gotoScreen3ScreenNoTransition();
+    void gotoScreen3ScreenNoTransitionImpl();
 
 private:
     touchgfx::Callback<FrontendApplication> transitionCallback2;
+    touchgfx::Callback<FrontendApplication> transitionCallback3;
 };
 
 #endif // FRONTENDAPPLICATION_HPP

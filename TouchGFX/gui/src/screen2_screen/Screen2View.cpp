@@ -21,12 +21,11 @@ void Screen2View::tearDownScreen()
 {
     Screen2ViewBase::tearDownScreen();
 }
-
 void Screen2View::startGame()
 {
-    application().gotoScreen1ScreenNoTransition();
+    // Bạn có thể để trống tạm thời, hoặc thêm logic bắt đầu game vào đây.
+    // Việc có cặp ngoặc nhọn {} là bắt buộc để trình biên dịch biết hàm này đã được định nghĩa.
 }
-
 void Screen2View::handleTickEvent()
 {
 #ifndef SIMULATOR
@@ -35,7 +34,6 @@ void Screen2View::handleTickEvent()
     {
         if (cmd == 'R')
         {
-            startGame();
         }
     }
 #endif

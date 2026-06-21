@@ -11,9 +11,10 @@ public:
     virtual ~Screen2View() {}
     virtual void setupScreen();
     virtual void tearDownScreen();
-    virtual void startGame() override;
+    virtual void startGame();
     virtual void handleTickEvent() override;
-protected:
+    
+    // Override TouchGFX Designer virtual functions
 };
 
 #endif // SCREEN2VIEW_HPP

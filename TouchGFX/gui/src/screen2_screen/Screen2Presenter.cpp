@@ -21,6 +21,10 @@ void Screen2Presenter::joystickUpdated(bool left, bool right, bool up, bool down
 {
     if (button)
     {
-        view.startGame();
     }
+}
+
+void Screen2Presenter::setNumPlayers(int count)
+{
+    model->setNumPlayers(count);
 }

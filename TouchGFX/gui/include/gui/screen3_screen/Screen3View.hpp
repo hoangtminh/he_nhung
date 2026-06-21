@@ -1,8 +1,8 @@
-#ifndef SCREEN1VIEW_HPP
-#define SCREEN1VIEW_HPP
+#ifndef SCREEN3VIEW_HPP
+#define SCREEN3VIEW_HPP
 
-#include <gui_generated/screen1_screen/Screen1ViewBase.hpp>
-#include <gui/screen1_screen/Screen1Presenter.hpp>
+#include <gui_generated/screen3_screen/Screen3ViewBase.hpp>
+#include <gui/screen3_screen/Screen3Presenter.hpp>
 #include <touchgfx/widgets/Box.hpp>
 #include <touchgfx/widgets/Image.hpp>
 #include <touchgfx/containers/Container.hpp>
@@ -11,7 +11,7 @@
 #include <touchgfx/Color.hpp>
 #include <stdio.h>
 
-class PixelFont
+class PixelFont3
 {
 public:
     static uint16_t getGlyph(char c)
@@ -98,10 +98,10 @@ public:
     }
 };
 
-class ScoreWidget : public touchgfx::Widget
+class ScoreWidget3 : public touchgfx::Widget
 {
 public:
-    ScoreWidget() : score(0)
+    ScoreWidget3() : score(0)
     {
         setWidth(100);
         setHeight(12);
@@ -118,7 +118,7 @@ public:
         char buf[32];
         sprintf(buf, "SCORE:%d", score);
         touchgfx::colortype color = touchgfx::Color::getColorFromRGB(255, 255, 255);
-        PixelFont::drawText(*this, invalidatedArea, buf, 0, 0, 2, color);
+        PixelFont3::drawText(*this, invalidatedArea, buf, 0, 0, 2, color);
     }
 
     virtual touchgfx::Rect getSolidRect() const override
@@ -130,10 +130,10 @@ private:
     int score;
 };
 
-class GameOverWidget : public touchgfx::Widget
+class GameOverWidget3 : public touchgfx::Widget
 {
 public:
-    GameOverWidget() : visible(false)
+    GameOverWidget3() : visible(false)
     {
         setPosition(40, 120, 160, 50);
     }
@@ -160,11 +160,11 @@ public:
 
         // Draw GAME OVER in Red
         touchgfx::colortype redColor = touchgfx::Color::getColorFromRGB(255, 0, 0);
-        PixelFont::drawText(*this, invalidatedArea, "GAME OVER", 44, 10, 2, redColor);
+        PixelFont3::drawText(*this, invalidatedArea, "GAME OVER", 44, 10, 2, redColor);
 
         // Draw PRESS BTN TO RESTART in White
         touchgfx::colortype whiteColor = touchgfx::Color::getColorFromRGB(255, 255, 255);
-        PixelFont::drawText(*this, invalidatedArea, "PRESS BTN TO RESTART", 8, 30, 1, whiteColor);
+        PixelFont3::drawText(*this, invalidatedArea, "PRESS BTN TO RESTART", 8, 30, 1, whiteColor);
     }
 
     virtual touchgfx::Rect getSolidRect() const override
@@ -176,19 +176,19 @@ private:
     bool visible;
 };
 
-class Screen1View : public Screen1ViewBase
+class Screen3View : public Screen3ViewBase
 {
 public:
-    Screen1View();
-    virtual ~Screen1View() {}
-    virtual void setupScreen();
-    virtual void tearDownScreen();
-    
+    Screen3View();
+    virtual ~Screen3View() {}
+    virtual void setupScreen() override;
+    virtual void tearDownScreen() override;
+
     virtual void handleTickEvent() override;
-    
+
     // Joystick and key input handlers
     void handleJoystick(bool left, bool right, bool up, bool down, bool button);
-    virtual void handleKeyEvent(uint8_t c);
+    virtual void handleKeyEvent(uint8_t c) override;
 
 protected:
     static const int ALIEN_ROWS = 5;
@@ -216,8 +216,8 @@ protected:
     } explosions[MAX_EXPLOSIONS];
 
     // Score and Game Over
-    ScoreWidget scoreWidget;
-    GameOverWidget gameOverWidget;
+    ScoreWidget3 scoreWidget;
+    GameOverWidget3 gameOverWidget;
     touchgfx::Container healthContainer;
     int score;
     bool isGameOver;
@@ -225,11 +225,15 @@ protected:
     int playerHealth;
 
     int bulletCooldown;
+    int bullet2Cooldown;
     int alienDir;
     int alienMoveTick;
 
+    touchgfx::Box ship2Bullet;
+
     // Helper functions
     void spawnBullet();
+    void spawnShip2Bullet();
     void spawnAlienBullet();
     void spawnExplosion(int x, int y);
     void gameOver();
@@ -239,4 +243,4 @@ protected:
     void checkBulletAlienCollision(touchgfx::Widget& bullet);
 };
 
-#endif // SCREEN1VIEW_HPP
+#endif // SCREEN3VIEW_HPP
