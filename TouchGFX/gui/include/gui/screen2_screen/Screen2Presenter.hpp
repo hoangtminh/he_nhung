@@ -24,6 +24,7 @@ public:
      * (ie. made inactive). Teardown functionality can be placed here.
      */
     virtual void deactivate();
+    virtual void joystickUpdated(bool left, bool right, bool up, bool down, bool button) override;
 
     virtual ~Screen2Presenter() {}
 

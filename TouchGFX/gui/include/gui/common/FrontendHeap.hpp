@@ -57,6 +57,11 @@ public:
         return instance;
     }
 
+    virtual void gotoStartScreen(FrontendApplication& app) override
+    {
+        app.gotoScreen2ScreenNoTransition();
+    }
+
     touchgfx::Partition< CombinedPresenterTypes, 1 > presenters;
     touchgfx::Partition< CombinedViewTypes, 1 > views;
     touchgfx::Partition< CombinedTransitionTypes, 1 > transitions;

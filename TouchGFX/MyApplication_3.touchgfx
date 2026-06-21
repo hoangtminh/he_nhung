@@ -25,8 +25,8 @@
             "Name": "alien",
             "X": 95,
             "Y": 79,
-            "Width": 39,
-            "Height": 27,
+            "Width": 24,
+            "Height": 16,
             "RelativeFilename": "Alien.png"
           },
           {
@@ -38,14 +38,90 @@
             "Height": 96,
             "RelativeFilename": "SpaceInvaders_Health.png",
             "Moveable": true
+          },
+          {
+            "Type": "Box",
+            "Name": "shipBullet",
+            "X": 128,
+            "Y": 155,
+            "Width": 3,
+            "Height": 10,
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            }
+          },
+          {
+            "Type": "Image",
+            "Name": "deadAlien",
+            "Width": 40,
+            "Height": 90,
+            "RelativeFilename": "DeadAlien.png"
           }
         ],
         "Interactions": []
       },
       {
         "Name": "Screen2",
-        "Components": [],
-        "Interactions": []
+        "Components": [
+          {
+            "Type": "Box",
+            "Name": "box1",
+            "Width": 240,
+            "Height": 320,
+            "Color": {
+              "Red": 154,
+              "Green": 217,
+              "Blue": 65
+            }
+          },
+          {
+            "Type": "Image",
+            "Name": "image1",
+            "X": 30,
+            "Y": 73,
+            "Width": 180,
+            "Height": 120,
+            "RelativeFilename": "Promo.png"
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "buttonWithLabel1",
+            "X": 65,
+            "Y": 203,
+            "Width": 110,
+            "Height": 50,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_50_tiny_rounded_disabled.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_50_tiny_rounded_disabled.png",
+            "TextId": "__SingleUse_4UC7",
+            "ReleasedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_50\\tiny_rounded_disabled.json"
+          }
+        ],
+        "Interactions": [
+          {
+            "InteractionName": "Interaction1",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "buttonWithLabel1"
+            },
+            "Action": {
+              "Type": "ActionCustom",
+              "FunctionName": "startGame"
+            }
+          }
+        ]
       }
     ],
     "CustomContainerDefinitions": [],

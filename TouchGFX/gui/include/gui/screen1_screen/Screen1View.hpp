@@ -184,14 +184,15 @@ public:
     virtual void setupScreen();
     virtual void tearDownScreen();
     
+    virtual void handleTickEvent() override;
+    
     // Joystick and key input handlers
     void handleJoystick(bool left, bool right, bool up, bool down, bool button);
     virtual void handleKeyEvent(uint8_t c);
 
 protected:
-    static const int ALIEN_ROWS = 4;
-    static const int ALIEN_COLS = 6;
-    static const int MAX_BULLETS = 8;
+    static const int ALIEN_ROWS = 5;
+    static const int ALIEN_COLS = 7;
     static const int MAX_ALIEN_BULLETS = 8;
     static const int MAX_EXPLOSIONS = 8;
 
@@ -200,9 +201,6 @@ protected:
     // Game state variables
     touchgfx::Image alienGrid[ALIEN_ROWS][ALIEN_COLS];
     bool alienActive[ALIEN_ROWS][ALIEN_COLS];
-
-    touchgfx::Image bullets[MAX_BULLETS];
-    bool bulletActive[MAX_BULLETS];
     
     // Alien bullets
     touchgfx::Image alienBullets[MAX_ALIEN_BULLETS];
@@ -220,9 +218,11 @@ protected:
     // Score and Game Over
     ScoreWidget scoreWidget;
     GameOverWidget gameOverWidget;
+    touchgfx::Container healthContainer;
     int score;
     bool isGameOver;
     int alienShootCooldown;
+    int playerHealth;
 
     int bulletCooldown;
     int alienDir;
@@ -235,6 +235,7 @@ protected:
     void gameOver();
     void restartGame();
     void tickGame();
+    void decreaseHealth();
 };
 
 #endif // SCREEN1VIEW_HPP

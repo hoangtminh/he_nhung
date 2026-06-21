@@ -2,8 +2,16 @@
 #include <touchgfx/Color.hpp>
 #include <images/BitmapDatabase.hpp>
 
+#ifndef SIMULATOR
+#include "main.h"
+#include "cmsis_os.h"
+extern "C" {
+    extern osMessageQueueId_t Queue1Handle;
+}
+#endif
+
 Screen1View::Screen1View()
-    : score(0), isGameOver(false), alienShootCooldown(80), bulletCooldown(0), alienDir(1), alienMoveTick(0)
+    : score(0), isGameOver(false), alienShootCooldown(45), bulletCooldown(0), alienDir(1), alienMoveTick(0), playerHealth(5)
 {
     // Initialize alien and bullet arrays
     for (int r = 0; r < ALIEN_ROWS; r++)
@@ -12,11 +20,6 @@ Screen1View::Screen1View()
         {
             alienActive[r][c] = false;
         }
-    }
-    
-    for (int i = 0; i < MAX_BULLETS; i++)
-    {
-        bulletActive[i] = false;
     }
 
     for (int i = 0; i < MAX_ALIEN_BULLETS; i++)
@@ -45,8 +48,8 @@ void Screen1View::setupScreen()
     // Initialize replicated alien grid
     int startX = 0;
     int startY = 10;
-    int spacingX = 1;
-    int spacingY = 5;
+    int spacingX = 4;
+    int spacingY = 4;
 
     for (int r = 0; r < ALIEN_ROWS; r++)
     {
@@ -61,14 +64,9 @@ void Screen1View::setupScreen()
         }
     }
 
-    // Initialize bullets (using ShipBullet image)
-    for (int i = 0; i < MAX_BULLETS; i++)
-    {
-        bullets[i].setBitmap(touchgfx::Bitmap(BITMAP_SHIPBULLET_ID));
-        bullets[i].setVisible(false);
-        add(bullets[i]);
-        bulletActive[i] = false;
-    }
+    // Initialize shipBullet
+    shipBullet.setVisible(false);
+    shipBullet.invalidate();
 
     // Initialize alien bullets (using AlienBullet image)
     for (int i = 0; i < MAX_ALIEN_BULLETS; i++)
@@ -97,10 +95,27 @@ void Screen1View::setupScreen()
     scoreWidget.setScore(0);
     add(scoreWidget);
 
+    // Reposition health widget to top left using healthContainer clipping
+    remove(health);
+    healthContainer.setPosition(10, 10, 32, 16);
+    healthContainer.add(health);
+    add(healthContainer);
+    health.setXY(0, 0);
+    health.setVisible(true);
+    health.invalidate();
+    playerHealth = 5;
+
     // Add GameOverWidget (centered)
     gameOverWidget.setPosition(40, 125, 160, 50);
     gameOverWidget.setVisibleState(false);
     add(gameOverWidget);
+
+    // Position ship in the middle at the bottom
+    ship.moveTo(101, 261);
+    ship.setVisible(true);
+    ship.invalidate();
+
+    isGameOver = false;
 }
 
 void Screen1View::tearDownScreen()
@@ -184,20 +199,15 @@ void Screen1View::handleJoystick(bool left, bool right, bool up, bool down, bool
 
 void Screen1View::spawnBullet()
 {
-    for (int i = 0; i < MAX_BULLETS; i++)
+    if (!shipBullet.isVisible())
     {
-        if (!bulletActive[i])
-        {
-            // Spawn bullet exactly from the horizontal center of the ship, just above its top edge
-            int bx = ship.getX() + (ship.getWidth() - bullets[i].getWidth()) / 2;
-            int by = ship.getY() - bullets[i].getHeight();
-            
-            bullets[i].moveTo(bx, by);
-            bullets[i].setVisible(true);
-            bullets[i].invalidate();
-            bulletActive[i] = true;
-            break;
-        }
+        // Spawn bullet exactly from the horizontal center of the ship, just above its top edge
+        int bx = ship.getX() + (ship.getWidth() - shipBullet.getWidth()) / 2;
+        int by = ship.getY() - shipBullet.getHeight();
+        
+        shipBullet.moveTo(bx, by);
+        shipBullet.setVisible(true);
+        shipBullet.invalidate();
     }
 }
 
@@ -270,6 +280,35 @@ void Screen1View::gameOver()
     isGameOver = true;
     ship.setVisible(false);
     ship.invalidate();
+
+    // Reset and clean screen to prevent leftover pixels from bullets, aliens, and explosions
+    shipBullet.setVisible(false);
+    shipBullet.invalidate();
+
+    for (int i = 0; i < MAX_ALIEN_BULLETS; i++)
+    {
+        alienBullets[i].setVisible(false);
+        alienBullets[i].invalidate();
+        alienBulletActive[i] = false;
+    }
+
+    for (int i = 0; i < MAX_EXPLOSIONS; i++)
+    {
+        explosions[i].container.setVisible(false);
+        explosions[i].container.invalidate();
+        explosions[i].frame = -1;
+    }
+
+    for (int r = 0; r < ALIEN_ROWS; r++)
+    {
+        for (int c = 0; c < ALIEN_COLS; c++)
+        {
+            alienActive[r][c] = false;
+            alienGrid[r][c].setVisible(false);
+            alienGrid[r][c].invalidate();
+        }
+    }
+
     gameOverWidget.setVisibleState(true);
 }
 
@@ -285,8 +324,8 @@ void Screen1View::restartGame()
     // Reset aliens
     int startX = 0;
     int startY = 10;
-    int spacingX = 1;
-    int spacingY = 5;
+    int spacingX = 4;
+    int spacingY = 4;
 
     for (int r = 0; r < ALIEN_ROWS; r++)
     {
@@ -300,13 +339,9 @@ void Screen1View::restartGame()
         }
     }
 
-    // Reset player bullets
-    for (int i = 0; i < MAX_BULLETS; i++)
-    {
-        bullets[i].setVisible(false);
-        bullets[i].invalidate();
-        bulletActive[i] = false;
-    }
+    // Reset player bullet
+    shipBullet.setVisible(false);
+    shipBullet.invalidate();
 
     // Reset alien bullets
     for (int i = 0; i < MAX_ALIEN_BULLETS; i++)
@@ -327,7 +362,10 @@ void Screen1View::restartGame()
     bulletCooldown = 0;
     alienDir = 1;
     alienMoveTick = 0;
-    alienShootCooldown = 80;
+    alienShootCooldown = 45;
+    playerHealth = 5;
+    health.setXY(0, 0);
+    health.invalidate();
     gameOverWidget.setVisibleState(false);
 }
 
@@ -338,23 +376,19 @@ void Screen1View::tickGame()
         return;
     }
 
-    // 1. Move player bullets straight up
-    for (int i = 0; i < MAX_BULLETS; i++)
+    // 1. Move player bullet straight up
+    if (shipBullet.isVisible())
     {
-        if (bulletActive[i])
+        int by = shipBullet.getY() - 5; // Bullet speed: 5 pixels per frame
+        if (by + shipBullet.getHeight() < 0)
         {
-            int by = bullets[i].getY() - 5; // Bullet speed: 5 pixels per frame
-            if (by + bullets[i].getHeight() < 0)
-            {
-                bullets[i].setVisible(false);
-                bullets[i].invalidate();
-                bulletActive[i] = false;
-            }
-            else
-            {
-                bullets[i].moveTo(bullets[i].getX(), by);
-                bullets[i].invalidate();
-            }
+            shipBullet.setVisible(false);
+            shipBullet.invalidate();
+        }
+        else
+        {
+            shipBullet.moveTo(shipBullet.getX(), by);
+            shipBullet.invalidate();
         }
     }
 
@@ -363,7 +397,7 @@ void Screen1View::tickGame()
     {
         if (alienBulletActive[i])
         {
-            int by = alienBullets[i].getY() + 3; // Alien bullet speed: 3 pixels per frame
+            int by = alienBullets[i].getY() + 2; // Alien bullet speed: 2 pixels per frame
             if (by > 320)
             {
                 alienBullets[i].setVisible(false);
@@ -376,12 +410,15 @@ void Screen1View::tickGame()
                 alienBullets[i].invalidate();
 
                 // Check collision with player ship
-                if (alienBullets[i].getRect().intersect(ship.getRect()))
+                touchgfx::Rect shipRect = ship.getRect();
+                // Shrink ship hitbox slightly (2 pixels on each side) for a fairer feel
+                touchgfx::Rect shipHitbox(shipRect.x + 2, shipRect.y + 2, shipRect.width - 4, shipRect.height - 4);
+                if (alienBullets[i].getRect().intersect(shipHitbox))
                 {
                     alienBullets[i].setVisible(false);
                     alienBullets[i].invalidate();
                     alienBulletActive[i] = false;
-                    gameOver();
+                    decreaseHealth();
                 }
             }
         }
@@ -416,17 +453,17 @@ void Screen1View::tickGame()
     alienShootCooldown--;
     if (alienShootCooldown <= 0)
     {
-        alienShootCooldown = 80; // Shoot every 80 frames (~1.3s)
+        alienShootCooldown = 45; // Shoot every 45 frames (increased from 80)
         spawnAlienBullet();
     }
 
-    // 5. Move alien grid periodically
+    // 5. Move alien grid periodically (every 1 second = 60 frames)
     alienMoveTick++;
-    if (alienMoveTick >= 12)
+    if (alienMoveTick >= 60)
     {
         alienMoveTick = 0;
         bool hitEdge = false;
-        int step = 4;        // Horizontal speed
+        int step = 10;       // Horizontal speed (1 đoạn nhỏ)
         int shiftDown = 10;  // Shift down step
 
         // Check if moving would hit the left/right screen edges
@@ -487,46 +524,90 @@ void Screen1View::tickGame()
         }
     }
 
-    // 6. Collision detection: Active player bullets hitting active aliens
-    for (int b = 0; b < MAX_BULLETS; b++)
+    // 6. Collision detection: Active player bullet hitting active aliens
+    if (shipBullet.isVisible())
     {
-        if (bulletActive[b])
+        touchgfx::Rect bulletRect = shipBullet.getRect();
+        for (int r = 0; r < ALIEN_ROWS; r++)
         {
-            touchgfx::Rect bulletRect = bullets[b].getRect();
-            for (int r = 0; r < ALIEN_ROWS; r++)
+            for (int c = 0; c < ALIEN_COLS; c++)
             {
-                for (int c = 0; c < ALIEN_COLS; c++)
+                if (alienActive[r][c])
                 {
-                    if (alienActive[r][c])
+                    touchgfx::Rect alienRect = alienGrid[r][c].getRect();
+                    // Shrink the alien hitbox slightly (1 pixel on each side) for more precise collision
+                    touchgfx::Rect alienHitbox(alienRect.x + 1, alienRect.y + 1, alienRect.width - 2, alienRect.height - 2);
+                    if (bulletRect.intersect(alienHitbox))
                     {
-                        touchgfx::Rect alienRect = alienGrid[r][c].getRect();
-                        if (bulletRect.intersect(alienRect))
-                        {
-                            // Collision: hide and deactivate both the alien and the bullet
-                            alienActive[r][c] = false;
-                            alienGrid[r][c].setVisible(false);
-                            alienGrid[r][c].invalidate();
+                        // Collision: hide and deactivate both the alien and the bullet
+                        alienActive[r][c] = false;
+                        alienGrid[r][c].setVisible(false);
+                        alienGrid[r][c].invalidate();
 
-                            bulletActive[b] = false;
-                            bullets[b].setVisible(false);
-                            bullets[b].invalidate();
+                        shipBullet.setVisible(false);
+                        shipBullet.invalidate();
 
-                            // Spawn explosion
-                            spawnExplosion(alienGrid[r][c].getX(), alienGrid[r][c].getY());
+                        // Spawn explosion
+                        spawnExplosion(alienGrid[r][c].getX(), alienGrid[r][c].getY());
 
-                            // Increment score
-                            score += 10;
-                            scoreWidget.setScore(score);
-                            break;
-                        }
+                        // Increment score
+                        score += 10;
+                        scoreWidget.setScore(score);
+                        break;
                     }
                 }
-                if (!bulletActive[b])
+            }
+            if (!shipBullet.isVisible())
+            {
+                break;
+            }
+        }
+    }
+
+    // 7. Collision detection: Ship colliding with active aliens
+    for (int r = 0; r < ALIEN_ROWS; r++)
+    {
+        for (int c = 0; c < ALIEN_COLS; c++)
+        {
+            if (alienActive[r][c])
+            {
+                if (alienGrid[r][c].getRect().intersect(ship.getRect()))
                 {
-                    break;
+                    // Alien touches ship: destroy the alien and decrease health
+                    alienActive[r][c] = false;
+                    alienGrid[r][c].setVisible(false);
+                    alienGrid[r][c].invalidate();
+
+                    // Spawn explosion at alien's position
+                    spawnExplosion(alienGrid[r][c].getX(), alienGrid[r][c].getY());
+
+                    decreaseHealth();
                 }
             }
         }
+    }
+}
+
+void Screen1View::decreaseHealth()
+{
+    if (isGameOver)
+    {
+        return;
+    }
+
+    playerHealth--;
+    if (playerHealth < 0)
+    {
+        playerHealth = 0;
+    }
+
+    // Update health widget visual frame by sliding it inside the container
+    health.setXY(0, -(5 - playerHealth) * 16);
+    health.invalidate();
+
+    if (playerHealth == 0)
+    {
+        gameOver();
     }
 }
 
@@ -543,4 +624,72 @@ void Screen1View::handleKeyEvent(uint8_t c)
     {
         handleJoystick(left, right, up, down, button);
     }
+}
+
+void Screen1View::handleTickEvent()
+{
+#ifndef SIMULATOR
+    uint8_t cmd;
+    bool left = false;
+    bool right = false;
+    bool up = false;
+    bool down = false;
+    
+    // Drain all commands in the queue
+    while (osMessageQueueGet(Queue1Handle, &cmd, NULL, 0) == osOK)
+    {
+        if (cmd == 'L') left = true;
+        else if (cmd == 'R') right = true;
+        else if (cmd == 'U') up = true;
+        else if (cmd == 'D') down = true;
+    }
+    
+    bool button = (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET);
+    
+    if (isGameOver)
+    {
+        if (button)
+        {
+            restartGame();
+        }
+        return;
+    }
+    
+    // Move the ship by 10 pixels as per instruction/design
+    int x = ship.getX();
+    int y = ship.getY();
+    
+    if (left) x -= 10;
+    if (right) x += 10;
+    if (up) y -= 10;
+    if (down) y += 10;
+    
+    // Screen boundary constraints (screen is 240x320)
+    if (x < 0) x = 0;
+    if (x > 240 - ship.getWidth()) x = 240 - ship.getWidth();
+    if (y < 0) y = 0;
+    if (y > 320 - ship.getHeight()) y = 320 - ship.getHeight();
+    
+    if (x != ship.getX() || y != ship.getY())
+    {
+        ship.moveTo(x, y);
+        ship.invalidate();
+    }
+    
+    // Bullet shooting cooldown management
+    if (bulletCooldown > 0)
+    {
+        bulletCooldown--;
+    }
+    
+    // Fire bullet if button is pressed and cooldown has elapsed
+    if (button && bulletCooldown == 0)
+    {
+        spawnBullet();
+        bulletCooldown = 15;
+    }
+    
+    // Call game physics update
+    tickGame();
+#endif
 }
