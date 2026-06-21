@@ -29,8 +29,10 @@ void Model::tick()
     button = g_joystick.button;
 #endif
 
+#ifdef SIMULATOR
     if (modelListener != 0)
     {
         modelListener->joystickUpdated(left, right, up, down, button);
     }
+#endif
 }
