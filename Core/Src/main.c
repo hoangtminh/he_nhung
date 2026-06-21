@@ -6,7 +6,7 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2020 STMicroelectroni 3cs.
   * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under Ultimate Liberty license
@@ -587,7 +587,7 @@ static void MX_SPI5_Init(void)
   HAL_SPI_Transmit(&hspi5, &READ_ID_CMD, 1, 1000);
   HAL_SPI_Receive(&hspi5, &pdata, 1, 1000);
   HAL_GPIO_WritePin(SPI5_NCS_GPIO_Port, SPI5_NCS_Pin, GPIO_PIN_SET);
-  if (pdata == 0xD3) // 0b11010011
+  if (pdata == 0xD3 || pdata == 0xD7) // 0b11010011 or 0b11010111
   {
     isRevD = 1;
   }
