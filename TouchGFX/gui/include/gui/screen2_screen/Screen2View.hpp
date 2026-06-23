@@ -15,6 +15,9 @@ public:
     virtual void handleTickEvent() override;
     
     // Override TouchGFX Designer virtual functions
+private:
+    uint8_t selectedMode; // 0 for 1 Player, 1 for 2 Players
+    uint32_t blinkCounter;
 };
 
 #endif // SCREEN2VIEW_HPP

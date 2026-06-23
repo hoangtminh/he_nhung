@@ -51,13 +51,6 @@
               "Green": 255,
               "Blue": 255
             }
-          },
-          {
-            "Type": "Image",
-            "Name": "deadAlien",
-            "Width": 40,
-            "Height": 90,
-            "RelativeFilename": "DeadAlien.png"
           }
         ],
         "Interactions": []

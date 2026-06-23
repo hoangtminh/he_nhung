@@ -11,7 +11,7 @@ extern "C" {
 #endif
 
 Screen3View::Screen3View()
-    : score(0), isGameOver(false), alienShootCooldown(45), bulletCooldown(0), bullet2Cooldown(0), alienDir(1), alienMoveTick(0), playerHealth(5)
+    : score(0), isGameOver(false), isVictory(false), alienShootCooldown(45), bulletCooldown(0), bullet2Cooldown(0), alienDir(1), alienMoveTick(0), playerHealth(5)
 {
     // Initialize alien and bullet arrays
     for (int r = 0; r < ALIEN_ROWS; r++)
@@ -106,7 +106,7 @@ void Screen3View::setupScreen()
     playerHealth = 5;
 
     // Add GameOverWidget (centered)
-    gameOverWidget.setPosition(40, 125, 160, 50);
+    gameOverWidget.setPosition(40, 125, 160, 70);
     gameOverWidget.setVisibleState(false);
     add(gameOverWidget);
 
@@ -346,6 +346,47 @@ void Screen3View::gameOver()
     gameOverWidget.setVisibleState(true);
 }
 
+void Screen3View::victory()
+{
+    isGameOver = true;
+    isVictory = true;
+    ship1.setVisible(false);
+    ship1.invalidate();
+    ship2.setVisible(false);
+    ship2.invalidate();
+
+    shipBullet.setVisible(false);
+    shipBullet.invalidate();
+    ship2Bullet.setVisible(false);
+    ship2Bullet.invalidate();
+
+    for (int i = 0; i < MAX_ALIEN_BULLETS; i++)
+    {
+        alienBullets[i].setVisible(false);
+        alienBullets[i].invalidate();
+        alienBulletActive[i] = false;
+    }
+
+    for (int i = 0; i < MAX_EXPLOSIONS; i++)
+    {
+        explosions[i].container.setVisible(false);
+        explosions[i].container.invalidate();
+        explosions[i].frame = -1;
+    }
+
+    for (int r = 0; r < ALIEN_ROWS; r++)
+    {
+        for (int c = 0; c < ALIEN_COLS; c++)
+        {
+            alienActive[r][c] = false;
+            alienGrid[r][c].setVisible(false);
+            alienGrid[r][c].invalidate();
+        }
+    }
+
+    gameOverWidget.setVisibleState(true, true, score);
+}
+
 void Screen3View::restartGame()
 {
     isGameOver = false;
@@ -409,6 +450,7 @@ void Screen3View::restartGame()
     playerHealth = 5;
     health.setXY(0, 0);
     health.invalidate();
+    isVictory = false;
     gameOverWidget.setVisibleState(false);
 }
 
@@ -660,6 +702,25 @@ void Screen3View::tickGame()
                 }
             }
         }
+    }
+
+    // 8. Check victory condition (all aliens killed)
+    bool anyActive = false;
+    for (int r = 0; r < ALIEN_ROWS; r++)
+    {
+        for (int c = 0; c < ALIEN_COLS; c++)
+        {
+            if (alienActive[r][c])
+            {
+                anyActive = true;
+                break;
+            }
+        }
+        if (anyActive) break;
+    }
+    if (!anyActive && !isGameOver)
+    {
+        victory();
     }
 }
 

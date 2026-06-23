@@ -10,6 +10,7 @@
 #include <touchgfx/hal/HAL.hpp>
 #include <touchgfx/Color.hpp>
 #include <stdio.h>
+#include <string.h>
 
 class PixelFont3
 {
@@ -133,14 +134,16 @@ private:
 class GameOverWidget3 : public touchgfx::Widget
 {
 public:
-    GameOverWidget3() : visible(false)
+    GameOverWidget3() : visible(false), isVictory(false), score(0)
     {
-        setPosition(40, 120, 160, 50);
+        setPosition(40, 110, 160, 70);
     }
 
-    void setVisibleState(bool v)
+    void setVisibleState(bool v, bool victory = false, int s = 0)
     {
         visible = v;
+        isVictory = victory;
+        score = s;
         invalidate();
     }
 
@@ -158,13 +161,33 @@ public:
             touchgfx::HAL::lcd().fillRect(tempBg, touchgfx::Color::getColorFromRGB(0, 0, 0), 200);
         }
 
-        // Draw GAME OVER in Red
-        touchgfx::colortype redColor = touchgfx::Color::getColorFromRGB(255, 0, 0);
-        PixelFont3::drawText(*this, invalidatedArea, "GAME OVER", 44, 10, 2, redColor);
+        if (isVictory)
+        {
+            // Draw VICTORY in Green
+            touchgfx::colortype greenColor = touchgfx::Color::getColorFromRGB(0, 255, 0);
+            PixelFont3::drawText(*this, invalidatedArea, "VICTORY", 52, 10, 2, greenColor);
 
-        // Draw PRESS BTN TO RESTART in White
-        touchgfx::colortype whiteColor = touchgfx::Color::getColorFromRGB(255, 255, 255);
-        PixelFont3::drawText(*this, invalidatedArea, "PRESS BTN TO RESTART", 8, 30, 1, whiteColor);
+            // Draw SCORE: <score> in White
+            char scoreBuf[32];
+            sprintf(scoreBuf, "SCORE:%d", score);
+            touchgfx::colortype whiteColor = touchgfx::Color::getColorFromRGB(255, 255, 255);
+            int len = strlen(scoreBuf);
+            int scoreX = (getWidth() - len * 8) / 2; // size 2, 8px per char
+            PixelFont3::drawText(*this, invalidatedArea, scoreBuf, scoreX, 30, 2, whiteColor);
+
+            // Draw PRESS BTN TO RESTART in White
+            PixelFont3::drawText(*this, invalidatedArea, "PRESS BTN TO RESTART", 40, 52, 1, whiteColor);
+        }
+        else
+        {
+            // Draw GAME OVER in Red
+            touchgfx::colortype redColor = touchgfx::Color::getColorFromRGB(255, 0, 0);
+            PixelFont3::drawText(*this, invalidatedArea, "GAME OVER", 44, 15, 2, redColor);
+
+            // Draw PRESS BTN TO RESTART in White
+            touchgfx::colortype whiteColor = touchgfx::Color::getColorFromRGB(255, 255, 255);
+            PixelFont3::drawText(*this, invalidatedArea, "PRESS BTN TO RESTART", 40, 40, 1, whiteColor);
+        }
     }
 
     virtual touchgfx::Rect getSolidRect() const override
@@ -174,6 +197,8 @@ public:
 
 private:
     bool visible;
+    bool isVictory;
+    int score;
 };
 
 class Screen3View : public Screen3ViewBase
@@ -221,6 +246,7 @@ protected:
     touchgfx::Container healthContainer;
     int score;
     bool isGameOver;
+    bool isVictory;
     int alienShootCooldown;
     int playerHealth;
 
@@ -237,6 +263,7 @@ protected:
     void spawnAlienBullet();
     void spawnExplosion(int x, int y);
     void gameOver();
+    void victory();
     void restartGame();
     void tickGame();
     void decreaseHealth();
