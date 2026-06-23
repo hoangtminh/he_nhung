@@ -236,6 +236,7 @@ protected:
     void restartGame();
     void tickGame();
     void decreaseHealth();
+    void checkBulletAlienCollision(touchgfx::Widget& bullet);
 };
 
 #endif // SCREEN1VIEW_HPP

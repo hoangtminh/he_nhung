@@ -6,9 +6,15 @@
 #include "main.h"
 #include "cmsis_os.h"
 extern "C" {
-    extern osMessageQueueId_t Queue1Handle;
+    extern osMessageQueueId_t Joystick1QueueHandle;
 }
 #endif
+
+namespace
+{
+// Giữ tàu ở nửa dưới màn hình để không đi lẫn vào vùng đội hình alien.
+static const int PLAYER_MIN_Y = 160;
+}
 
 Screen1View::Screen1View()
     : score(0), isGameOver(false), alienShootCooldown(45), bulletCooldown(0), alienDir(1), alienMoveTick(0), playerHealth(5)
@@ -110,8 +116,8 @@ void Screen1View::setupScreen()
     gameOverWidget.setVisibleState(false);
     add(gameOverWidget);
 
-    // Position ship in the middle at the bottom
-    ship.moveTo(101, 261);
+    // 1-player mode (Line 1: Y=270)
+    ship.moveTo(101, 270);
     ship.setVisible(true);
     ship.invalidate();
 
@@ -134,49 +140,45 @@ void Screen1View::handleJoystick(bool left, bool right, bool up, bool down, bool
         return;
     }
 
-    // Ship movement speed: 3 pixels per frame
-    int x = ship.getX();
-    int y = ship.getY();
-
+    // Joystick điều khiển tàu theo cả hai trục; giới hạn để tàu không ra ngoài màn hình.
+    int x1 = ship.getX();
+    int y1 = ship.getY();
     if (left)
     {
-        x -= 3;
+        x1 -= 3;
     }
     if (right)
     {
-        x += 3;
+        x1 += 3;
     }
     if (up)
     {
-        y -= 3;
+        y1 -= 3;
     }
     if (down)
     {
-        y += 3;
+        y1 += 3;
+    }
+    if (x1 < 0)
+    {
+        x1 = 0;
+    }
+    if (x1 > 240 - ship.getWidth())
+    {
+        x1 = 240 - ship.getWidth();
+    }
+    if (y1 < PLAYER_MIN_Y)
+    {
+        y1 = PLAYER_MIN_Y;
+    }
+    if (y1 > 320 - ship.getHeight())
+    {
+        y1 = 320 - ship.getHeight();
     }
 
-    // Boundary constraints: Screen is 240x320
-    if (x < 0)
+    if ((x1 != ship.getX()) || (y1 != ship.getY()))
     {
-        x = 0;
-    }
-    if (x > 240 - ship.getWidth())
-    {
-        x = 240 - ship.getWidth();
-    }
-    if (y < 0)
-    {
-        y = 0;
-    }
-    if (y > 320 - ship.getHeight())
-    {
-        y = 320 - ship.getHeight();
-    }
-
-    // Update ship position if changed
-    if (x != ship.getX() || y != ship.getY())
-    {
-        ship.moveTo(x, y);
+        ship.moveTo(x1, y1);
         ship.invalidate();
     }
 
@@ -186,11 +188,11 @@ void Screen1View::handleJoystick(bool left, bool right, bool up, bool down, bool
         bulletCooldown--;
     }
 
-    // Fire bullet if button is pressed and cooldown has elapsed
+    // Fire Ship 1 bullet (button is outside button / Spacebar in simulator)
     if (button && bulletCooldown == 0)
     {
         spawnBullet();
-        bulletCooldown = 15; // Cooldown limit (~250ms at 60fps)
+        bulletCooldown = 15;
     }
 
     // Run periodic game tick update
@@ -201,7 +203,6 @@ void Screen1View::spawnBullet()
 {
     if (!shipBullet.isVisible())
     {
-        // Spawn bullet exactly from the horizontal center of the ship, just above its top edge
         int bx = ship.getX() + (ship.getWidth() - shipBullet.getWidth()) / 2;
         int by = ship.getY() - shipBullet.getHeight();
         
@@ -210,6 +211,8 @@ void Screen1View::spawnBullet()
         shipBullet.invalidate();
     }
 }
+
+// spawnShip2Bullet removed
 
 void Screen1View::spawnAlienBullet()
 {
@@ -281,6 +284,8 @@ void Screen1View::gameOver()
     ship.setVisible(false);
     ship.invalidate();
 
+
+
     // Reset and clean screen to prevent leftover pixels from bullets, aliens, and explosions
     shipBullet.setVisible(false);
     shipBullet.invalidate();
@@ -317,7 +322,8 @@ void Screen1View::restartGame()
     isGameOver = false;
     score = 0;
     scoreWidget.setScore(0);
-    ship.moveTo(101, 261);
+    
+    ship.moveTo(101, 270);
     ship.setVisible(true);
     ship.invalidate();
 
@@ -369,6 +375,37 @@ void Screen1View::restartGame()
     gameOverWidget.setVisibleState(false);
 }
 
+void Screen1View::checkBulletAlienCollision(touchgfx::Widget& bullet)
+{
+    touchgfx::Rect bulletRect = bullet.getRect();
+    for (int r = 0; r < ALIEN_ROWS; r++)
+    {
+        for (int c = 0; c < ALIEN_COLS; c++)
+        {
+            if (alienActive[r][c])
+            {
+                touchgfx::Rect alienRect = alienGrid[r][c].getRect();
+                touchgfx::Rect alienHitbox(alienRect.x + 1, alienRect.y + 1, alienRect.width - 2, alienRect.height - 2);
+                if (bulletRect.intersect(alienHitbox))
+                {
+                    alienActive[r][c] = false;
+                    alienGrid[r][c].setVisible(false);
+                    alienGrid[r][c].invalidate();
+
+                    bullet.setVisible(false);
+                    bullet.invalidate();
+
+                    spawnExplosion(alienGrid[r][c].getX(), alienGrid[r][c].getY());
+
+                    score += 10;
+                    scoreWidget.setScore(score);
+                    return;
+                }
+            }
+        }
+    }
+}
+
 void Screen1View::tickGame()
 {
     if (isGameOver)
@@ -376,10 +413,10 @@ void Screen1View::tickGame()
         return;
     }
 
-    // 1. Move player bullet straight up
+    // 1. Move player bullets straight up
     if (shipBullet.isVisible())
     {
-        int by = shipBullet.getY() - 5; // Bullet speed: 5 pixels per frame
+        int by = shipBullet.getY() - 5;
         if (by + shipBullet.getHeight() < 0)
         {
             shipBullet.setVisible(false);
@@ -391,7 +428,6 @@ void Screen1View::tickGame()
             shipBullet.invalidate();
         }
     }
-
     // 2. Move alien bullets down
     for (int i = 0; i < MAX_ALIEN_BULLETS; i++)
     {
@@ -411,7 +447,6 @@ void Screen1View::tickGame()
 
                 // Check collision with player ship
                 touchgfx::Rect shipRect = ship.getRect();
-                // Shrink ship hitbox slightly (2 pixels on each side) for a fairer feel
                 touchgfx::Rect shipHitbox(shipRect.x + 2, shipRect.y + 2, shipRect.width - 4, shipRect.height - 4);
                 if (alienBullets[i].getRect().intersect(shipHitbox))
                 {
@@ -524,46 +559,11 @@ void Screen1View::tickGame()
         }
     }
 
-    // 6. Collision detection: Active player bullet hitting active aliens
+    // 6. Collision detection: Active player bullets hitting active aliens
     if (shipBullet.isVisible())
     {
-        touchgfx::Rect bulletRect = shipBullet.getRect();
-        for (int r = 0; r < ALIEN_ROWS; r++)
-        {
-            for (int c = 0; c < ALIEN_COLS; c++)
-            {
-                if (alienActive[r][c])
-                {
-                    touchgfx::Rect alienRect = alienGrid[r][c].getRect();
-                    // Shrink the alien hitbox slightly (1 pixel on each side) for more precise collision
-                    touchgfx::Rect alienHitbox(alienRect.x + 1, alienRect.y + 1, alienRect.width - 2, alienRect.height - 2);
-                    if (bulletRect.intersect(alienHitbox))
-                    {
-                        // Collision: hide and deactivate both the alien and the bullet
-                        alienActive[r][c] = false;
-                        alienGrid[r][c].setVisible(false);
-                        alienGrid[r][c].invalidate();
-
-                        shipBullet.setVisible(false);
-                        shipBullet.invalidate();
-
-                        // Spawn explosion
-                        spawnExplosion(alienGrid[r][c].getX(), alienGrid[r][c].getY());
-
-                        // Increment score
-                        score += 10;
-                        scoreWidget.setScore(score);
-                        break;
-                    }
-                }
-            }
-            if (!shipBullet.isVisible())
-            {
-                break;
-            }
-        }
+        checkBulletAlienCollision(shipBullet);
     }
-
     // 7. Collision detection: Ship colliding with active aliens
     for (int r = 0; r < ALIEN_ROWS; r++)
     {
@@ -571,16 +571,15 @@ void Screen1View::tickGame()
         {
             if (alienActive[r][c])
             {
-                if (alienGrid[r][c].getRect().intersect(ship.getRect()))
+                touchgfx::Rect alienRect = alienGrid[r][c].getRect();
+                if (alienRect.intersect(ship.getRect()))
                 {
-                    // Alien touches ship: destroy the alien and decrease health
+                    // Alien touches ship
                     alienActive[r][c] = false;
                     alienGrid[r][c].setVisible(false);
                     alienGrid[r][c].invalidate();
 
-                    // Spawn explosion at alien's position
-                    spawnExplosion(alienGrid[r][c].getX(), alienGrid[r][c].getY());
-
+                    spawnExplosion(alienRect.x, alienRect.y);
                     decreaseHealth();
                 }
             }
@@ -635,8 +634,8 @@ void Screen1View::handleTickEvent()
     bool up = false;
     bool down = false;
     
-    // Drain all commands in the queue
-    while (osMessageQueueGet(Queue1Handle, &cmd, NULL, 0) == osOK)
+    // Màn 1 người chỉ đọc queue của joystick 1.
+    while ((Joystick1QueueHandle != NULL) && (osMessageQueueGet(Joystick1QueueHandle, &cmd, NULL, 0) == osOK))
     {
         if (cmd == 'L') left = true;
         else if (cmd == 'R') right = true;
@@ -644,35 +643,32 @@ void Screen1View::handleTickEvent()
         else if (cmd == 'D') down = true;
     }
     
-    bool button = (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET);
+    bool button1 = (HAL_GPIO_ReadPin(P1_BUTTON_GPIO_Port, P1_BUTTON_Pin) == GPIO_PIN_RESET);
     
     if (isGameOver)
     {
-        if (button)
+        if (button1)
         {
             restartGame();
         }
         return;
     }
     
-    // Move the ship by 10 pixels as per instruction/design
-    int x = ship.getX();
-    int y = ship.getY();
+    // Người chơi 1 di chuyển theo cả X/Y bằng joystick 1.
+    int x1 = ship.getX();
+    int y1 = ship.getY();
+    if (left) x1 -= 10;
+    if (right) x1 += 10;
+    if (up) y1 -= 10;
+    if (down) y1 += 10;
+    if (x1 < 0) x1 = 0;
+    if (x1 > 240 - ship.getWidth()) x1 = 240 - ship.getWidth();
+    if (y1 < PLAYER_MIN_Y) y1 = PLAYER_MIN_Y;
+    if (y1 > 320 - ship.getHeight()) y1 = 320 - ship.getHeight();
     
-    if (left) x -= 10;
-    if (right) x += 10;
-    if (up) y -= 10;
-    if (down) y += 10;
-    
-    // Screen boundary constraints (screen is 240x320)
-    if (x < 0) x = 0;
-    if (x > 240 - ship.getWidth()) x = 240 - ship.getWidth();
-    if (y < 0) y = 0;
-    if (y > 320 - ship.getHeight()) y = 320 - ship.getHeight();
-    
-    if (x != ship.getX() || y != ship.getY())
+    if ((x1 != ship.getX()) || (y1 != ship.getY()))
     {
-        ship.moveTo(x, y);
+        ship.moveTo(x1, y1);
         ship.invalidate();
     }
     
@@ -682,8 +678,8 @@ void Screen1View::handleTickEvent()
         bulletCooldown--;
     }
     
-    // Fire bullet if button is pressed and cooldown has elapsed
-    if (button && bulletCooldown == 0)
+    // Fire Ship 1 bullet
+    if (button1 && bulletCooldown == 0)
     {
         spawnBullet();
         bulletCooldown = 15;

@@ -16,8 +16,3 @@ void Screen1Presenter::deactivate()
 {
 
 }
-
-void Screen1Presenter::joystickUpdated(bool left, bool right, bool up, bool down, bool button)
-{
-    view.handleJoystick(left, right, up, down, button);
-}
