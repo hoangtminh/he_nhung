@@ -25,9 +25,6 @@ public:
      */
     virtual void deactivate();
 
-    virtual void joystickUpdated(bool left, bool right, bool up, bool down, bool button) override;
-    int getNumPlayers() const;
-
     virtual ~Screen3Presenter() {}
 
 private:

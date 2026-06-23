@@ -37,18 +37,10 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-typedef struct {
-    uint8_t left;
-    uint8_t right;
-    uint8_t up;
-    uint8_t down;
-    uint8_t button;
-} JoystickState;
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
-extern JoystickState g_joystick;
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/
@@ -76,6 +68,10 @@ void Error_Handler(void);
 #define SPI5_NCS_GPIO_Port GPIOC
 
 /* USER CODE BEGIN Private defines */
+#define P1_BUTTON_Pin GPIO_PIN_3
+#define P1_BUTTON_GPIO_Port GPIOG
+#define P2_BUTTON_Pin GPIO_PIN_2
+#define P2_BUTTON_GPIO_Port GPIOG
 
 /* USER CODE END Private defines */
 

@@ -148,7 +148,7 @@ public:
     {
         if (!visible) return;
 
-        // Draw semi-transparent black background
+        // Vẽ nền đen mờ phía sau chữ Game Over.
         touchgfx::Rect bgRect(0, 0, getWidth(), getHeight());
         touchgfx::Rect drawBg = bgRect & invalidatedArea;
         if (!drawBg.isEmpty())
@@ -158,11 +158,11 @@ public:
             touchgfx::HAL::lcd().fillRect(tempBg, touchgfx::Color::getColorFromRGB(0, 0, 0), 200);
         }
 
-        // Draw GAME OVER in Red
+        // Vẽ dòng GAME OVER màu đỏ.
         touchgfx::colortype redColor = touchgfx::Color::getColorFromRGB(255, 0, 0);
         PixelFont3::drawText(*this, invalidatedArea, "GAME OVER", 44, 10, 2, redColor);
 
-        // Draw PRESS BTN TO RESTART in White
+        // Vẽ hướng dẫn bấm nút để chơi lại.
         touchgfx::colortype whiteColor = touchgfx::Color::getColorFromRGB(255, 255, 255);
         PixelFont3::drawText(*this, invalidatedArea, "PRESS BTN TO RESTART", 8, 30, 1, whiteColor);
     }
@@ -186,8 +186,7 @@ public:
 
     virtual void handleTickEvent() override;
 
-    // Joystick and key input handlers
-    void handleJoystick(bool left, bool right, bool up, bool down, bool button);
+    // Input bàn phím chỉ dùng khi chạy TouchGFX simulator.
     virtual void handleKeyEvent(uint8_t c) override;
 
 protected:
@@ -198,24 +197,24 @@ protected:
 
     struct GridPos { int r; int c; };
 
-    // Game state variables
+    // Trạng thái của đội hình alien.
     touchgfx::Image alienGrid[ALIEN_ROWS][ALIEN_COLS];
     bool alienActive[ALIEN_ROWS][ALIEN_COLS];
     
-    // Alien bullets
+    // Pool đạn alien.
     touchgfx::Image alienBullets[MAX_ALIEN_BULLETS];
     bool alienBulletActive[MAX_ALIEN_BULLETS];
 
-    // Explosion animations
+    // Pool hiệu ứng nổ.
     struct Explosion
     {
         touchgfx::Container container;
         touchgfx::Image image;
-        int frame; // -1 if inactive, 0..2 if active
+        int frame; // -1 là không hoạt động, 0..2 là frame animation đang chạy.
         int tickCounter;
     } explosions[MAX_EXPLOSIONS];
 
-    // Score and Game Over
+    // Điểm số, máu và trạng thái Game Over.
     ScoreWidget3 scoreWidget;
     GameOverWidget3 gameOverWidget;
     touchgfx::Container healthContainer;
@@ -231,7 +230,7 @@ protected:
 
     touchgfx::Box ship2Bullet;
 
-    // Helper functions
+    // Các hàm xử lý chính của gameplay.
     void spawnBullet();
     void spawnShip2Bullet();
     void spawnAlienBullet();

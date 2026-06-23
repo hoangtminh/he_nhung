@@ -27,9 +27,6 @@ public:
 
     virtual ~Screen1Presenter() {}
 
-    virtual void joystickUpdated(bool left, bool right, bool up, bool down, bool button);
-    int getNumPlayers() const;
-
 private:
     Screen1Presenter();
 

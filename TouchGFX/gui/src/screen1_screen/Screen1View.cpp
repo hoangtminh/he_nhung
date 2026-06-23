@@ -6,9 +6,15 @@
 #include "main.h"
 #include "cmsis_os.h"
 extern "C" {
-    extern osMessageQueueId_t Queue1Handle;
+    extern osMessageQueueId_t Joystick1QueueHandle;
 }
 #endif
+
+namespace
+{
+// Giữ tàu ở nửa dưới màn hình để không đi lẫn vào vùng đội hình alien.
+static const int PLAYER_MIN_Y = 160;
+}
 
 Screen1View::Screen1View()
     : score(0), isGameOver(false), alienShootCooldown(45), bulletCooldown(0), alienDir(1), alienMoveTick(0), playerHealth(5)
@@ -134,8 +140,9 @@ void Screen1View::handleJoystick(bool left, bool right, bool up, bool down, bool
         return;
     }
 
-    // Ship 1 moves horizontally on Line 1 (Y=270)
+    // Joystick điều khiển tàu theo cả hai trục; giới hạn để tàu không ra ngoài màn hình.
     int x1 = ship.getX();
+    int y1 = ship.getY();
     if (left)
     {
         x1 -= 3;
@@ -143,6 +150,14 @@ void Screen1View::handleJoystick(bool left, bool right, bool up, bool down, bool
     if (right)
     {
         x1 += 3;
+    }
+    if (up)
+    {
+        y1 -= 3;
+    }
+    if (down)
+    {
+        y1 += 3;
     }
     if (x1 < 0)
     {
@@ -152,10 +167,18 @@ void Screen1View::handleJoystick(bool left, bool right, bool up, bool down, bool
     {
         x1 = 240 - ship.getWidth();
     }
-
-    if (x1 != ship.getX())
+    if (y1 < PLAYER_MIN_Y)
     {
-        ship.moveTo(x1, ship.getY());
+        y1 = PLAYER_MIN_Y;
+    }
+    if (y1 > 320 - ship.getHeight())
+    {
+        y1 = 320 - ship.getHeight();
+    }
+
+    if ((x1 != ship.getX()) || (y1 != ship.getY()))
+    {
+        ship.moveTo(x1, y1);
         ship.invalidate();
     }
 
@@ -611,8 +634,8 @@ void Screen1View::handleTickEvent()
     bool up = false;
     bool down = false;
     
-    // Drain all commands in the queue
-    while (osMessageQueueGet(Queue1Handle, &cmd, NULL, 0) == osOK)
+    // Màn 1 người chỉ đọc queue của joystick 1.
+    while ((Joystick1QueueHandle != NULL) && (osMessageQueueGet(Joystick1QueueHandle, &cmd, NULL, 0) == osOK))
     {
         if (cmd == 'L') left = true;
         else if (cmd == 'R') right = true;
@@ -620,8 +643,7 @@ void Screen1View::handleTickEvent()
         else if (cmd == 'D') down = true;
     }
     
-    // Ship 1: outside button PG3 (Active Low - Pull-up)
-    bool button1 = (HAL_GPIO_ReadPin(GPIOG, GPIO_PIN_3) == GPIO_PIN_RESET);
+    bool button1 = (HAL_GPIO_ReadPin(P1_BUTTON_GPIO_Port, P1_BUTTON_Pin) == GPIO_PIN_RESET);
     
     if (isGameOver)
     {
@@ -632,16 +654,21 @@ void Screen1View::handleTickEvent()
         return;
     }
     
-    // Ship 1 horizontal movement on Line 1 (Y=270)
+    // Người chơi 1 di chuyển theo cả X/Y bằng joystick 1.
     int x1 = ship.getX();
+    int y1 = ship.getY();
     if (left) x1 -= 10;
     if (right) x1 += 10;
+    if (up) y1 -= 10;
+    if (down) y1 += 10;
     if (x1 < 0) x1 = 0;
     if (x1 > 240 - ship.getWidth()) x1 = 240 - ship.getWidth();
+    if (y1 < PLAYER_MIN_Y) y1 = PLAYER_MIN_Y;
+    if (y1 > 320 - ship.getHeight()) y1 = 320 - ship.getHeight();
     
-    if (x1 != ship.getX())
+    if ((x1 != ship.getX()) || (y1 != ship.getY()))
     {
-        ship.moveTo(x1, ship.getY());
+        ship.moveTo(x1, y1);
         ship.invalidate();
     }
     

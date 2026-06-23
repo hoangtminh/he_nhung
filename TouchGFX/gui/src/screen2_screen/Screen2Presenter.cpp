@@ -16,15 +16,3 @@ void Screen2Presenter::deactivate()
 {
 
 }
-
-void Screen2Presenter::joystickUpdated(bool left, bool right, bool up, bool down, bool button)
-{
-    if (button)
-    {
-    }
-}
-
-void Screen2Presenter::setNumPlayers(int count)
-{
-    model->setNumPlayers(count);
-}

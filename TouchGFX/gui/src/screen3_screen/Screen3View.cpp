@@ -6,14 +6,47 @@
 #include "main.h"
 #include "cmsis_os.h"
 extern "C" {
-    extern osMessageQueueId_t Queue1Handle;
+    extern osMessageQueueId_t Joystick1QueueHandle;
+    extern osMessageQueueId_t Joystick2QueueHandle;
 }
 #endif
+
+namespace
+{
+// Giữ hai người chơi ở vùng dưới đội hình alien nhưng vẫn cho di chuyển 2 chiều.
+static const int PLAYER_MIN_Y = 160;
+static const int PLAYER_MOVE_STEP = 10;
+static const int PLAYER_SIM_STEP = 3;
+
+template <typename Ship>
+void moveShip2D(Ship& ship, bool left, bool right, bool up, bool down, int step)
+{
+    int x = ship.getX();
+    int y = ship.getY();
+
+    if (left) x -= step;
+    if (right) x += step;
+    if (up) y -= step;
+    if (down) y += step;
+
+    // Giới hạn tàu không đi ra ngoài màn hình và không vượt lên vùng alien.
+    if (x < 0) x = 0;
+    if (x > 240 - ship.getWidth()) x = 240 - ship.getWidth();
+    if (y < PLAYER_MIN_Y) y = PLAYER_MIN_Y;
+    if (y > 320 - ship.getHeight()) y = 320 - ship.getHeight();
+
+    if ((x != ship.getX()) || (y != ship.getY()))
+    {
+        ship.moveTo(x, y);
+        ship.invalidate();
+    }
+}
+}
 
 Screen3View::Screen3View()
     : score(0), isGameOver(false), alienShootCooldown(45), bulletCooldown(0), bullet2Cooldown(0), alienDir(1), alienMoveTick(0), playerHealth(5)
 {
-    // Initialize alien and bullet arrays
+    // Khởi tạo trạng thái ban đầu cho alien, đạn alien và hiệu ứng nổ.
     for (int r = 0; r < ALIEN_ROWS; r++)
     {
         for (int c = 0; c < ALIEN_COLS; c++)
@@ -38,14 +71,14 @@ void Screen3View::setupScreen()
 {
     Screen3ViewBase::setupScreen();
 
-    // Hide the original designer alien widget
+    // Ẩn alien mẫu từ Designer vì game sẽ tự nhân bản thành đội hình nhiều alien.
     alien.setVisible(false);
     alien.invalidate();
 
-    // Get the original alien bitmap
+    // Lấy bitmap của alien mẫu để gán cho từng alien trong lưới.
     touchgfx::Bitmap alienBmp = alien.getBitmap();
 
-    // Initialize replicated alien grid
+    // Tạo đội hình alien dạng lưới.
     int startX = 0;
     int startY = 10;
     int spacingX = 4;
@@ -64,11 +97,11 @@ void Screen3View::setupScreen()
         }
     }
 
-    // Initialize shipBullet (for Ship 1)
+    // Đạn của người chơi 1 là widget có sẵn trong Designer.
     shipBullet.setVisible(false);
     shipBullet.invalidate();
 
-    // Initialize alien bullets (using AlienBullet image)
+    // Tạo pool đạn alien để tái sử dụng, tránh cấp phát động khi đang chơi.
     for (int i = 0; i < MAX_ALIEN_BULLETS; i++)
     {
         alienBullets[i].setBitmap(touchgfx::Bitmap(BITMAP_ALIENBULLET_ID));
@@ -77,7 +110,7 @@ void Screen3View::setupScreen()
         alienBulletActive[i] = false;
     }
 
-    // Initialize explosions (DeadAlien animation pool)
+    // Tạo pool hiệu ứng nổ từ sprite DeadAlien.
     for (int i = 0; i < MAX_EXPLOSIONS; i++)
     {
         explosions[i].container.setPosition(0, 0, 40, 30);
@@ -90,12 +123,12 @@ void Screen3View::setupScreen()
         explosions[i].tickCounter = 0;
     }
 
-    // Add ScoreWidget (upper right corner)
+    // Hiển thị điểm ở góc trên bên phải.
     scoreWidget.setPosition(160, 10, 72, 12);
     scoreWidget.setScore(0);
     add(scoreWidget);
 
-    // Reposition health widget to top left using healthContainer clipping
+    // Đưa thanh máu lên góc trên trái và dùng container để cắt frame hiển thị.
     remove(health);
     healthContainer.setPosition(10, 10, 32, 16);
     healthContainer.add(health);
@@ -105,22 +138,21 @@ void Screen3View::setupScreen()
     health.invalidate();
     playerHealth = 5;
 
-    // Add GameOverWidget (centered)
+    // Thêm lớp Game Over ở giữa màn hình, ban đầu ẩn.
     gameOverWidget.setPosition(40, 125, 160, 50);
     gameOverWidget.setVisibleState(false);
     add(gameOverWidget);
 
-    // Setup ship 1 (Line 1: Y=270, horizontal only)
+    // Đặt hai tàu ở vị trí khác nhau để không chồng lên nhau khi bắt đầu.
     ship1.moveTo(50, 270);
     ship1.setVisible(true);
     ship1.invalidate();
 
-    // Setup ship 2 (Line 2: Y=240, horizontal only)
     ship2.moveTo(160, 240);
     ship2.setVisible(true);
     ship2.invalidate();
 
-    // Setup ship2Bullet
+    // Đạn của người chơi 2 được tạo bằng Box vì Designer chỉ có sẵn shipBullet.
     ship2Bullet.setPosition(160 + (ship2.getWidth() - 3) / 2, 240 - 10, 3, 10);
     ship2Bullet.setColor(touchgfx::Color::getColorFromRGB(255, 255, 255));
     ship2Bullet.setVisible(false);
@@ -135,92 +167,11 @@ void Screen3View::tearDownScreen()
     Screen3ViewBase::tearDownScreen();
 }
 
-void Screen3View::handleJoystick(bool left, bool right, bool up, bool down, bool button)
-{
-    if (isGameOver)
-    {
-        if (button)
-        {
-            restartGame();
-        }
-        return;
-    }
-
-    // Ship 1 moves horizontally on Line 1 (Y=270)
-    int x1 = ship1.getX();
-    if (left)
-    {
-        x1 -= 3;
-    }
-    if (right)
-    {
-        x1 += 3;
-    }
-    if (x1 < 0)
-    {
-        x1 = 0;
-    }
-    if (x1 > 240 - ship1.getWidth())
-    {
-        x1 = 240 - ship1.getWidth();
-    }
-
-    if (x1 != ship1.getX())
-    {
-        ship1.moveTo(x1, ship1.getY());
-        ship1.invalidate();
-    }
-
-    // Ship 2 moves horizontally on Line 2 (Y=240) using Up/Down
-    int x2 = ship2.getX();
-    if (up)
-    {
-        x2 -= 3; // Up moves Left
-    }
-    if (down)
-    {
-        x2 += 3; // Down moves Right
-    }
-    if (x2 < 0)
-    {
-        x2 = 0;
-    }
-    if (x2 > 240 - ship2.getWidth())
-    {
-        x2 = 240 - ship2.getWidth();
-    }
-
-    if (x2 != ship2.getX())
-    {
-        ship2.moveTo(x2, ship2.getY());
-        ship2.invalidate();
-    }
-
-    // Bullet shooting cooldown management
-    if (bulletCooldown > 0)
-    {
-        bulletCooldown--;
-    }
-    if (bullet2Cooldown > 0)
-    {
-        bullet2Cooldown--;
-    }
-
-    // Fire Ship 1 bullet (button is outside button / Spacebar in simulator)
-    if (button && bulletCooldown == 0)
-    {
-        spawnBullet();
-        bulletCooldown = 15;
-    }
-
-    // Run periodic game tick update
-    tickGame();
-}
-
 void Screen3View::spawnBullet()
 {
     if (!shipBullet.isVisible())
     {
+        // Mỗi người chơi chỉ có một viên đạn đang bay; bắn lại khi đạn cũ biến mất.
         int bx = ship1.getX() + (ship1.getWidth() - shipBullet.getWidth()) / 2;
         int by = ship1.getY() - shipBullet.getHeight();
         
@@ -234,6 +185,7 @@ void Screen3View::spawnShip2Bullet()
 {
     if (!ship2Bullet.isVisible())
     {
+        // Người chơi 2 dùng viên đạn tạo bằng code, độc lập với shipBullet của người chơi 1.
         int bx = ship2.getX() + (ship2.getWidth() - ship2Bullet.getWidth()) / 2;
         int by = ship2.getY() - ship2Bullet.getHeight();
         
@@ -245,7 +197,7 @@ void Screen3View::spawnShip2Bullet()
 
 void Screen3View::spawnAlienBullet()
 {
-    // Find all active aliens
+    // Chọn ngẫu nhiên một alien còn sống rồi gán vào slot đạn alien đang rảnh.
     int activeCount = 0;
     GridPos activeAliens[ALIEN_ROWS * ALIEN_COLS];
     for (int r = 0; r < ALIEN_ROWS; r++)
@@ -261,14 +213,14 @@ void Screen3View::spawnAlienBullet()
 
     if (activeCount > 0)
     {
-        // Simple pseudo-random index selection
+        // Bộ sinh số giả ngẫu nhiên đơn giản để chọn alien bắn.
         static unsigned int seed = 12345;
         seed = seed * 1103515245 + 12345;
         int idx = (seed / 65536) % activeCount;
         int r = activeAliens[idx].r;
         int c = activeAliens[idx].c;
 
-        // Spawn bullet
+        // Tạo đạn alien tại vị trí alien được chọn.
         for (int i = 0; i < MAX_ALIEN_BULLETS; i++)
         {
             if (!alienBulletActive[i])
@@ -308,6 +260,7 @@ void Screen3View::spawnExplosion(int x, int y)
 
 void Screen3View::gameOver()
 {
+    // Dừng game bằng cách ẩn toàn bộ vật thể động, chỉ giữ lớp Game Over để chờ chơi lại.
     isGameOver = true;
     ship1.setVisible(false);
     ship1.invalidate();
@@ -348,6 +301,7 @@ void Screen3View::gameOver()
 
 void Screen3View::restartGame()
 {
+    // Khôi phục toàn bộ object runtime vì màn chơi được tái sử dụng sau Game Over.
     isGameOver = false;
     score = 0;
     scoreWidget.setScore(0);
@@ -363,7 +317,7 @@ void Screen3View::restartGame()
     ship2Bullet.setVisible(false);
     ship2Bullet.invalidate();
 
-    // Reset aliens
+    // Đưa toàn bộ alien về vị trí ban đầu.
     int startX = 0;
     int startY = 10;
     int spacingX = 4;
@@ -381,11 +335,11 @@ void Screen3View::restartGame()
         }
     }
 
-    // Reset player bullet
+    // Tắt đạn của người chơi 1.
     shipBullet.setVisible(false);
     shipBullet.invalidate();
 
-    // Reset alien bullets
+    // Tắt toàn bộ đạn alien.
     for (int i = 0; i < MAX_ALIEN_BULLETS; i++)
     {
         alienBullets[i].setVisible(false);
@@ -393,7 +347,7 @@ void Screen3View::restartGame()
         alienBulletActive[i] = false;
     }
 
-    // Reset explosions
+    // Tắt toàn bộ hiệu ứng nổ.
     for (int i = 0; i < MAX_EXPLOSIONS; i++)
     {
         explosions[i].container.setVisible(false);
@@ -414,6 +368,7 @@ void Screen3View::restartGame()
 
 void Screen3View::checkBulletAlienCollision(touchgfx::Widget& bullet)
 {
+    // Hàm va chạm dùng chung cho đạn của cả hai người chơi.
     touchgfx::Rect bulletRect = bullet.getRect();
     for (int r = 0; r < ALIEN_ROWS; r++)
     {
@@ -450,7 +405,7 @@ void Screen3View::tickGame()
         return;
     }
 
-    // 1. Move player bullets straight up
+    // 1. Cho đạn người chơi bay thẳng lên và tái sử dụng khi ra khỏi màn hình.
     if (shipBullet.isVisible())
     {
         int by = shipBullet.getY() - 5;
@@ -480,12 +435,12 @@ void Screen3View::tickGame()
         }
     }
 
-    // 2. Move alien bullets down
+    // 2. Cho đạn alien bay xuống; trúng tàu nào cũng trừ thanh máu chung.
     for (int i = 0; i < MAX_ALIEN_BULLETS; i++)
     {
         if (alienBulletActive[i])
         {
-            int by = alienBullets[i].getY() + 2; // Alien bullet speed: 2 pixels per frame
+            int by = alienBullets[i].getY() + 2; // Tốc độ đạn alien: 2 pixel mỗi frame.
             if (by > 320)
             {
                 alienBullets[i].setVisible(false);
@@ -497,7 +452,7 @@ void Screen3View::tickGame()
                 alienBullets[i].moveTo(alienBullets[i].getX(), by);
                 alienBullets[i].invalidate();
 
-                // Check collision with player ship 1
+                // Kiểm tra va chạm với tàu người chơi 1.
                 touchgfx::Rect shipRect = ship1.getRect();
                 touchgfx::Rect shipHitbox(shipRect.x + 2, shipRect.y + 2, shipRect.width - 4, shipRect.height - 4);
                 if (alienBullets[i].getRect().intersect(shipHitbox))
@@ -507,7 +462,7 @@ void Screen3View::tickGame()
                     alienBulletActive[i] = false;
                     decreaseHealth();
                 }
-                // Check collision with player ship 2
+                // Kiểm tra va chạm với tàu người chơi 2.
                 else
                 {
                     touchgfx::Rect ship2Rect = ship2.getRect();
@@ -524,7 +479,7 @@ void Screen3View::tickGame()
         }
     }
 
-    // 3. Update explosions
+    // 3. Cập nhật animation nổ từ sprite sheet DeadAlien.
     for (int i = 0; i < MAX_EXPLOSIONS; i++)
     {
         if (explosions[i].frame != -1)
@@ -549,7 +504,7 @@ void Screen3View::tickGame()
         }
     }
 
-    // 4. Periodically trigger alien shooting
+    // 4. Định kỳ cho một alien còn sống bắn đạn.
     alienShootCooldown--;
     if (alienShootCooldown <= 0)
     {
@@ -557,7 +512,7 @@ void Screen3View::tickGame()
         spawnAlienBullet();
     }
 
-    // 5. Move alien grid periodically
+    // 5. Di chuyển đội hình alien ngang; chạm mép thì đảo chiều và hạ xuống.
     alienMoveTick++;
     if (alienMoveTick >= 60)
     {
@@ -622,7 +577,7 @@ void Screen3View::tickGame()
         }
     }
 
-    // 6. Collision detection
+    // 6. Đạn người chơi tiêu diệt alien và tăng điểm chung.
     if (shipBullet.isVisible())
     {
         checkBulletAlienCollision(shipBullet);
@@ -632,7 +587,7 @@ void Screen3View::tickGame()
         checkBulletAlienCollision(ship2Bullet);
     }
 
-    // 7. Collision detection: Ships colliding with active aliens
+    // 7. Alien chạm vào bất kỳ tàu nào thì mất máu và alien đó biến mất.
     for (int r = 0; r < ALIEN_ROWS; r++)
     {
         for (int c = 0; c < ALIEN_COLS; c++)
@@ -676,6 +631,7 @@ void Screen3View::decreaseHealth()
         playerHealth = 0;
     }
 
+    // Dịch bitmap thanh máu bên trong container bị cắt để hiện đúng số mạng còn lại.
     health.setXY(0, -(5 - playerHealth) * 16);
     health.invalidate();
 
@@ -687,49 +643,89 @@ void Screen3View::decreaseHealth()
 
 void Screen3View::handleKeyEvent(uint8_t c)
 {
-    // Support playing in TouchGFX simulator using WASD / Spacebar / F
-    bool left = (c == 'a' || c == 'A');
-    bool right = (c == 'd' || c == 'D');
-    bool up = (c == 'w' || c == 'W');
-    bool down = (c == 's' || c == 'S');
-    bool button = (c == ' ');
-    bool button2 = (c == 'f' || c == 'F');
+    // Trên simulator: người chơi 1 dùng WASD/Space, người chơi 2 dùng IJKL/F.
+    bool p1Left = (c == 'a' || c == 'A');
+    bool p1Right = (c == 'd' || c == 'D');
+    bool p1Up = (c == 'w' || c == 'W');
+    bool p1Down = (c == 's' || c == 'S');
+    bool p1Button = (c == ' ');
 
-    if (left || right || up || down || button)
+    bool p2Left = (c == 'j' || c == 'J');
+    bool p2Right = (c == 'l' || c == 'L');
+    bool p2Up = (c == 'i' || c == 'I');
+    bool p2Down = (c == 'k' || c == 'K');
+    bool p2Button = (c == 'f' || c == 'F');
+
+    if (isGameOver)
     {
-        handleJoystick(left, right, up, down, button);
+        if (p1Button || p2Button)
+        {
+            restartGame();
+        }
+        return;
     }
-    
-    if (button2 && bullet2Cooldown == 0)
+
+    moveShip2D(ship1, p1Left, p1Right, p1Up, p1Down, PLAYER_SIM_STEP);
+    moveShip2D(ship2, p2Left, p2Right, p2Up, p2Down, PLAYER_SIM_STEP);
+
+    if (bulletCooldown > 0)
+    {
+        bulletCooldown--;
+    }
+    if (bullet2Cooldown > 0)
+    {
+        bullet2Cooldown--;
+    }
+
+    if (p1Button && bulletCooldown == 0)
+    {
+        spawnBullet();
+        bulletCooldown = 15;
+    }
+
+    if (p2Button && bullet2Cooldown == 0)
     {
         spawnShip2Bullet();
         bullet2Cooldown = 15;
-        tickGame();
     }
+
+    tickGame();
 }
 
 void Screen3View::handleTickEvent()
 {
 #ifndef SIMULATOR
     uint8_t cmd;
-    bool left = false;
-    bool right = false;
-    bool up = false;
-    bool down = false;
+    bool p1Left = false;
+    bool p1Right = false;
+    bool p1Up = false;
+    bool p1Down = false;
+    bool p2Left = false;
+    bool p2Right = false;
+    bool p2Up = false;
+    bool p2Down = false;
     
-    // Drain all commands in the queue
-    while (osMessageQueueGet(Queue1Handle, &cmd, NULL, 0) == osOK)
+    // Queue joystick 1 chỉ điều khiển tàu người chơi 1.
+    while ((Joystick1QueueHandle != NULL) && (osMessageQueueGet(Joystick1QueueHandle, &cmd, NULL, 0) == osOK))
     {
-        if (cmd == 'L') left = true;
-        else if (cmd == 'R') right = true;
-        else if (cmd == 'U') up = true;
-        else if (cmd == 'D') down = true;
+        if (cmd == 'L') p1Left = true;
+        else if (cmd == 'R') p1Right = true;
+        else if (cmd == 'U') p1Up = true;
+        else if (cmd == 'D') p1Down = true;
+    }
+
+    // Queue joystick 2 chỉ điều khiển tàu người chơi 2.
+    while ((Joystick2QueueHandle != NULL) && (osMessageQueueGet(Joystick2QueueHandle, &cmd, NULL, 0) == osOK))
+    {
+        if (cmd == 'L') p2Left = true;
+        else if (cmd == 'R') p2Right = true;
+        else if (cmd == 'U') p2Up = true;
+        else if (cmd == 'D') p2Down = true;
     }
     
-    // Ship 1: outside button PG3 (Active Low - Pull-up)
-    bool button1 = (HAL_GPIO_ReadPin(GPIOG, GPIO_PIN_3) == GPIO_PIN_RESET);
-    // Ship 2: onboard button PA0 (Active High - Pull-down)
-    bool button2 = (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET);
+    // Nút bấm ngoài là active-low vì GPIO đang dùng điện trở kéo lên nội bộ.
+    bool button1 = (HAL_GPIO_ReadPin(P1_BUTTON_GPIO_Port, P1_BUTTON_Pin) == GPIO_PIN_RESET);
+    bool button2 = (HAL_GPIO_ReadPin(P2_BUTTON_GPIO_Port, P2_BUTTON_Pin) == GPIO_PIN_RESET);
     
     if (isGameOver)
     {
@@ -740,33 +736,10 @@ void Screen3View::handleTickEvent()
         return;
     }
     
-    // Ship 1 horizontal movement on Line 1 (Y=270)
-    int x1 = ship1.getX();
-    if (left) x1 -= 10;
-    if (right) x1 += 10;
-    if (x1 < 0) x1 = 0;
-    if (x1 > 240 - ship1.getWidth()) x1 = 240 - ship1.getWidth();
+    moveShip2D(ship1, p1Left, p1Right, p1Up, p1Down, PLAYER_MOVE_STEP);
+    moveShip2D(ship2, p2Left, p2Right, p2Up, p2Down, PLAYER_MOVE_STEP);
     
-    if (x1 != ship1.getX())
-    {
-        ship1.moveTo(x1, ship1.getY());
-        ship1.invalidate();
-    }
-    
-    // Ship 2 horizontal movement on Line 2 (Y=240) using Y-axis (Up/Down)
-    int x2 = ship2.getX();
-    if (up) x2 -= 10;
-    if (down) x2 += 10;
-    if (x2 < 0) x2 = 0;
-    if (x2 > 240 - ship2.getWidth()) x2 = 240 - ship2.getWidth();
-    
-    if (x2 != ship2.getX())
-    {
-        ship2.moveTo(x2, ship2.getY());
-        ship2.invalidate();
-    }
-    
-    // Bullet shooting cooldown management
+    // Giảm thời gian chờ giữa hai lần bắn.
     if (bulletCooldown > 0)
     {
         bulletCooldown--;
@@ -776,21 +749,21 @@ void Screen3View::handleTickEvent()
         bullet2Cooldown--;
     }
     
-    // Fire Ship 1 bullet
+    // Bắn đạn cho người chơi 1.
     if (button1 && bulletCooldown == 0)
     {
         spawnBullet();
         bulletCooldown = 15;
     }
     
-    // Fire Ship 2 bullet
+    // Bắn đạn cho người chơi 2.
     if (button2 && bullet2Cooldown == 0)
     {
         spawnShip2Bullet();
         bullet2Cooldown = 15;
     }
     
-    // Call game physics update
+    // Cập nhật vật lý game sau khi xử lý input.
     tickGame();
 #endif
 }

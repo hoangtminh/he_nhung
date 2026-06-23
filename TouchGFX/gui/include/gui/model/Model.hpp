@@ -15,19 +15,8 @@ public:
 
     void tick();
 
-    void setNumPlayers(int count)
-    {
-        numPlayers = count;
-    }
-
-    int getNumPlayers() const
-    {
-        return numPlayers;
-    }
-
 protected:
     ModelListener* modelListener;
-    int numPlayers;
 };
 
 #endif // MODEL_HPP

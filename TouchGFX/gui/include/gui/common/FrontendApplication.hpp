@@ -19,6 +19,12 @@ public:
         FrontendApplicationBase::handleTickEvent();
     }
 
+    virtual void changeToStartScreen() override
+    {
+        // Khởi động vào màn chọn chế độ để người dùng chọn 1 hoặc 2 người chơi bằng cảm ứng.
+        gotoScreen2ScreenNoTransition();
+    }
+
     void gotoScreen2ScreenNoTransition();
     void gotoScreen2ScreenNoTransitionImpl();
     void gotoScreen3ScreenNoTransition();

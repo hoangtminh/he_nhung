@@ -16,13 +16,3 @@ void Screen3Presenter::deactivate()
 {
 
 }
-
-void Screen3Presenter::joystickUpdated(bool left, bool right, bool up, bool down, bool button)
-{
-    view.handleJoystick(left, right, up, down, button);
-}
-
-int Screen3Presenter::getNumPlayers() const
-{
-    return model->getNumPlayers();
-}
