@@ -92,8 +92,6 @@ const osThreadAttr_t GUI_Task_attributes = {
 uint8_t isRevD = 0; /* Applicable only for STM32F429I DISCOVERY REVD and above */
 JoystickState g_joystick = {0};
 
-ADC_HandleTypeDef hadc1;
-ADC_HandleTypeDef hadc2;
 osMessageQueueId_t Queue1Handle;
 osThreadId_t Task03Handle;
 const osThreadAttr_t Task03_attributes = {
@@ -117,7 +115,6 @@ extern void TouchGFX_Task(void *argument);
 
 /* USER CODE BEGIN PFP */
 static void BSP_SDRAM_Initialization_Sequence(SDRAM_HandleTypeDef *hsdram, FMC_SDRAM_CommandTypeDef *Command);
-static void MX_ADC2_Init(void);
 void StartTask03(void *argument);
 
 
@@ -157,66 +154,44 @@ uint32_t Spi5Timeout = SPI5_TIMEOUT_MAX; /*<! Value of Timeout when SPI communic
 
 void MX_ADC1_Init(void)
 {
-  ADC_ChannelConfTypeDef sConfig = {0};
-
-  __HAL_RCC_ADC1_CLK_ENABLE();
-
-  hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
-  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
-  hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
-  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-  if (HAL_ADC_Init(&hadc1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  sConfig.Channel = ADC_CHANNEL_13;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
+    // Enable GPIOA and ADC1 clocks
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_ADC1_CLK_ENABLE();
+    
+    // Configure PA1 (ADC1_IN1) and PA2 (ADC1_IN2) as Analog
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin = GPIO_PIN_1 | GPIO_PIN_2;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+    
+    // Set ADC Prescaler to 4 (ADCCLK = PCLK2 / 4 = 90MHz / 4 = 22.5MHz)
+    // Clear ADCPRE bits [17:16] and set to 01 (ADC_CCR_ADCPRE_0)
+    ADC->CCR &= ~ADC_CCR_ADCPRE;
+    ADC->CCR |= ADC_CCR_ADCPRE_0;
+    
+    // Configure sampling time for Channel 1 and Channel 2 to 480 cycles to avoid crosstalk
+    ADC1->SMPR2 &= ~(ADC_SMPR2_SMP1 | ADC_SMPR2_SMP2);
+    ADC1->SMPR2 |= ADC_SMPR2_SMP1 | ADC_SMPR2_SMP2;
+    
+    // Enable ADC1
+    ADC1->CR2 = ADC_CR2_ADON;
 }
 
-static void MX_ADC2_Init(void)
+uint16_t ADC1_Read(uint32_t channel)
 {
-  ADC_ChannelConfTypeDef sConfig = {0};
-
-  __HAL_RCC_ADC2_CLK_ENABLE();
-
-  hadc2.Instance = ADC2;
-  hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
-  hadc2.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc2.Init.ScanConvMode = DISABLE;
-  hadc2.Init.ContinuousConvMode = DISABLE;
-  hadc2.Init.DiscontinuousConvMode = DISABLE;
-  hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc2.Init.NbrOfConversion = 1;
-  hadc2.Init.DMAContinuousRequests = DISABLE;
-  hadc2.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-  if (HAL_ADC_Init(&hadc2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  sConfig.Channel = ADC_CHANNEL_14;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
+    // Clear EOC flag before starting conversion
+    ADC1->SR &= ~ADC_SR_EOC;
+    // Configure channel
+    ADC1->SQR3 = channel;
+    // Start conversion
+    ADC1->CR2 |= ADC_CR2_SWSTART;
+    // Wait for conversion complete
+    while (!(ADC1->SR & ADC_SR_EOC))
+    {
+    }
+    // Return reading
+    return ADC1->DR;
 }
 /* USER CODE END 0 */
 
@@ -260,7 +235,6 @@ int main(void)
   MX_TouchGFX_PreOSInit();
   /* USER CODE BEGIN 2 */
   MX_ADC1_Init();
-  MX_ADC2_Init();
   Queue1Handle = osMessageQueueNew(8, sizeof(uint8_t), NULL);
   Task03Handle = osThreadNew(StartTask03, NULL, &Task03_attributes);
   /* USER CODE END 2 */
@@ -679,12 +653,6 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : PC3 PC4 */
-  GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_4;
-  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
   /*Configure GPIO pins : VSYNC_FREQ_Pin RENDER_TIME_Pin FRAME_RATE_Pin MCU_ACTIVE_Pin */
   GPIO_InitStruct.Pin = VSYNC_FREQ_Pin|RENDER_TIME_Pin|FRAME_RATE_Pin|MCU_ACTIVE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -1056,28 +1024,14 @@ void LCD_Delay(uint32_t Delay)
 
 void StartTask03(void *argument)
 {
-  uint16_t adc_x = 2048;
-  uint16_t adc_y = 2048;
   uint8_t command_x = 'N';
   uint8_t command_y = 'N';
 
   for(;;)
   {
-    // Read X direction from ADC1 (PC3)
-    HAL_ADC_Start(&hadc1);
-    if(HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
-    {
-      adc_x = HAL_ADC_GetValue(&hadc1);
-    }
-    HAL_ADC_Stop(&hadc1);
-
-    // Read Y direction from ADC2 (PC4)
-    HAL_ADC_Start(&hadc2);
-    if(HAL_ADC_PollForConversion(&hadc2, 10) == HAL_OK)
-    {
-      adc_y = HAL_ADC_GetValue(&hadc2);
-    }
-    HAL_ADC_Stop(&hadc2);
+    // Read analog values from PA1 (ADC1 channel 1) and PA2 (ADC1 channel 2)
+    uint16_t adc_x = ADC1_Read(1);
+    uint16_t adc_y = ADC1_Read(2);
 
     // Determine X command
     if (adc_x > 3000)
