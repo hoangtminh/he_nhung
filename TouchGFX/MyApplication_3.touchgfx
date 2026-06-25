@@ -80,21 +80,44 @@
             "Type": "Image",
             "Name": "image1",
             "X": 30,
-            "Y": 73,
+            "Y": 29,
             "Width": 180,
             "Height": 120,
             "RelativeFilename": "Promo.png"
           },
           {
             "Type": "ButtonWithLabel",
-            "Name": "buttonWithLabel1",
+            "Name": "onePLayer",
             "X": 65,
-            "Y": 203,
+            "Y": 149,
             "Width": 110,
             "Height": 50,
             "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_50_tiny_rounded_disabled.png",
             "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_50_tiny_rounded_disabled.png",
-            "TextId": "__SingleUse_4UC7",
+            "TextId": "__SingleUse_RWBM",
+            "ReleasedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_50\\tiny_rounded_disabled.json"
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "twoPlayer",
+            "X": 65,
+            "Y": 225,
+            "Width": 110,
+            "Height": 50,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_50_tiny_rounded_disabled.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_50_tiny_rounded_disabled.png",
+            "TextId": "__SingleUse_4UR6",
             "ReleasedColor": {
               "Red": 255,
               "Green": 255,
@@ -112,16 +135,100 @@
         "Interactions": [
           {
             "InteractionName": "Interaction1",
+            "HasCompletedTrigger": true,
             "Trigger": {
               "Type": "TriggerClicked",
-              "TriggerComponent": "buttonWithLabel1"
+              "TriggerComponent": "twoPlayer"
             },
             "Action": {
-              "Type": "ActionCustom",
-              "FunctionName": "startGame"
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionNone",
+              "ActionComponent": "Screen3"
+            }
+          },
+          {
+            "InteractionName": "Interaction2",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "onePLayer"
+            },
+            "Action": {
+              "Type": "ActionGotoScreen",
+              "ScreenTransitionType": "ScreenTransitionNone",
+              "ActionComponent": "Screen1"
             }
           }
         ]
+      },
+      {
+        "Name": "Screen3",
+        "Components": [
+          {
+            "Type": "Image",
+            "Name": "image3",
+            "Width": 240,
+            "Height": 320,
+            "RelativeFilename": "SpaceBackground.png"
+          },
+          {
+            "Type": "Image",
+            "Name": "ship1",
+            "X": 115,
+            "Y": 238,
+            "Width": 27,
+            "Height": 30,
+            "RelativeFilename": "SpaceShip.png"
+          },
+          {
+            "Type": "Image",
+            "Name": "ship2",
+            "X": 176,
+            "Y": 238,
+            "Width": 27,
+            "Height": 30,
+            "RelativeFilename": "SpaceShip.png"
+          },
+          {
+            "Type": "Image",
+            "Name": "alien",
+            "X": 95,
+            "Y": 79,
+            "Width": 24,
+            "Height": 16,
+            "RelativeFilename": "Alien.png"
+          },
+          {
+            "Type": "Image",
+            "Name": "health",
+            "X": 12,
+            "Y": 180,
+            "Width": 32,
+            "Height": 96,
+            "RelativeFilename": "SpaceInvaders_Health.png",
+            "Moveable": true
+          },
+          {
+            "Type": "Box",
+            "Name": "shipBullet",
+            "X": 128,
+            "Y": 155,
+            "Width": 3,
+            "Height": 10,
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            }
+          },
+          {
+            "Type": "Image",
+            "Name": "deadAlien",
+            "Width": 40,
+            "Height": 90,
+            "RelativeFilename": "DeadAlien.png"
+          }
+        ],
+        "Interactions": []
       }
     ],
     "CustomContainerDefinitions": [],
@@ -131,7 +238,7 @@
       "Height": 320
     },
     "SelectedColorDepth": 16,
-    "StartupScreenName": "Screen1",
+    "StartupScreenName": "Screen2",
     "SelectedStartupLanguage": "GB",
     "TouchGfxPath": "../Middlewares/ST/touchgfx",
     "UIPath": ".",
