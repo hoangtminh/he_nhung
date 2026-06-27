@@ -90,9 +90,9 @@ const osThreadAttr_t GUI_Task_attributes = {
 };
 /* USER CODE BEGIN PV */
 uint8_t isRevD = 0; /* Applicable only for STM32F429I DISCOVERY REVD and above */
-JoystickState g_joystick = {0};
 
-osMessageQueueId_t Queue1Handle;
+osMessageQueueId_t Joystick1QueueHandle;
+osMessageQueueId_t Joystick2QueueHandle;
 osThreadId_t Task03Handle;
 const osThreadAttr_t Task03_attributes = {
   .name = "Task03",
@@ -116,6 +116,10 @@ extern void TouchGFX_Task(void *argument);
 /* USER CODE BEGIN PFP */
 static void BSP_SDRAM_Initialization_Sequence(SDRAM_HandleTypeDef *hsdram, FMC_SDRAM_CommandTypeDef *Command);
 void StartTask03(void *argument);
+void MX_USART1_UART_Init(void);
+void UART1_WriteString(const char *text);
+void MX_ADC1_Init(void);
+void MX_ADC2_Init(void);
 
 
 
@@ -152,46 +156,191 @@ static LCD_DrvTypeDef* LcdDrv;
 uint32_t I2c3Timeout = I2C3_TIMEOUT_MAX; /*<! Value of Timeout when I2C communication fails */
 uint32_t Spi5Timeout = SPI5_TIMEOUT_MAX; /*<! Value of Timeout when SPI communication fails */
 
+#define P1_JOY_X_Pin GPIO_PIN_5
+#define P1_JOY_X_GPIO_Port GPIOA
+#define P1_JOY_X_ADC_Channel 5U
+#define P1_JOY_Y_Pin GPIO_PIN_7
+#define P1_JOY_Y_GPIO_Port GPIOA
+#define P1_JOY_Y_ADC_Channel 7U
+
+#define P2_JOY_X_Pin GPIO_PIN_5
+#define P2_JOY_X_GPIO_Port GPIOC
+#define P2_JOY_X_ADC_Channel 15U
+#define P2_JOY_Y_Pin GPIO_PIN_0
+#define P2_JOY_Y_GPIO_Port GPIOA
+#define P2_JOY_Y_ADC_Channel 0U
+
+void MX_USART1_UART_Init(void)
+{
+    // USART1 dùng PA9(TX) và PA10(RX) để in log ra Hercules, không dùng CubeMX để tránh regenerate TouchGFX.
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_USART1_CLK_ENABLE();
+
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin = GPIO_PIN_9 | GPIO_PIN_10;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    USART1->CR1 = 0;
+    USART1->CR2 = 0;
+    USART1->CR3 = 0;
+
+    // APB2 đang chạy 90 MHz, cấu hình baudrate 115200, 8 data bit, no parity, 1 stop bit.
+    USART1->BRR = 0x030D;
+    USART1->CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_UE;
+}
+
+static void UART1_WriteChar(char c)
+{
+    while ((USART1->SR & USART_SR_TXE) == 0)
+    {
+    }
+    USART1->DR = (uint8_t)c;
+}
+
+void UART1_WriteString(const char *text)
+{
+    while (*text != '\0')
+    {
+        UART1_WriteChar(*text++);
+    }
+}
+
+static void UART1_WriteUInt(uint16_t value)
+{
+    char digits[5];
+    int index = 0;
+
+    if (value == 0)
+    {
+        UART1_WriteChar('0');
+        return;
+    }
+
+    while (value > 0)
+    {
+        digits[index++] = (char)('0' + (value % 10));
+        value /= 10;
+    }
+
+    while (index > 0)
+    {
+        UART1_WriteChar(digits[--index]);
+    }
+}
+
+static void UART1_WriteCommand(uint8_t command)
+{
+    UART1_WriteChar((command == 'N') ? '-' : (char)command);
+}
+
+/*
+ * ADC cho joystick được cấu hình thủ công trong USER CODE thay vì sinh từ CubeMX.
+ * Lý do: project TouchGFX đang có nhiều phần generated; thêm ADC bằng tay giúp không
+ * phải regenerate toàn bộ project. Vì không dùng HAL_ADC_Init(), code bên dưới tự bật
+ * clock, cấu hình GPIO analog và ghi trực tiếp các thanh ghi ADCx.
+ */
 void MX_ADC1_Init(void)
 {
-    // Enable GPIOA and ADC1 clocks
+    // ADC1 chỉ đọc joystick 1: PA5 là trục X (ADC1_IN5), PA7 là trục Y (ADC1_IN7).
     __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_ADC1_CLK_ENABLE();
     
-    // Configure PA1 (ADC1_IN1) and PA2 (ADC1_IN2) as Analog
     GPIO_InitTypeDef GPIO_InitStruct = {0};
-    GPIO_InitStruct.Pin = GPIO_PIN_1 | GPIO_PIN_2;
+    GPIO_InitStruct.Pin = P1_JOY_X_Pin | P1_JOY_Y_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+    HAL_GPIO_Init(P1_JOY_X_GPIO_Port, &GPIO_InitStruct);
     
-    // Set ADC Prescaler to 4 (ADCCLK = PCLK2 / 4 = 90MHz / 4 = 22.5MHz)
-    // Clear ADCPRE bits [17:16] and set to 01 (ADC_CCR_ADCPRE_0)
+    // ADCPRE là bộ chia clock chung cho ADC1/2/3. Ở đây chọn PCLK2 / 4.
+    // PCLK2 của project là 90 MHz, nên ADC clock khoảng 22.5 MHz.
     ADC->CCR &= ~ADC_CCR_ADCPRE;
     ADC->CCR |= ADC_CCR_ADCPRE_0;
     
-    // Configure sampling time for Channel 1 and Channel 2 to 480 cycles to avoid crosstalk
-    ADC1->SMPR2 &= ~(ADC_SMPR2_SMP1 | ADC_SMPR2_SMP2);
-    ADC1->SMPR2 |= ADC_SMPR2_SMP1 | ADC_SMPR2_SMP2;
+    // Đưa ADC về cấu hình đơn giản: 12-bit mặc định, không scan, không interrupt.
+    ADC1->CR1 = 0;
+    ADC1->CR2 = 0;
+
+    // SMPR2 cấu hình sample time cho channel 0..9. Set cả 3 bit SMP5/SMP7
+    // để dùng thời gian lấy mẫu dài nhất, phù hợp nguồn analog từ biến trở joystick.
+    ADC1->SMPR2 &= ~(ADC_SMPR2_SMP5 | ADC_SMPR2_SMP7);
+    ADC1->SMPR2 |= ADC_SMPR2_SMP5 | ADC_SMPR2_SMP7;
+
+    // SQR1.L = 0 nghĩa là regular sequence chỉ có 1 conversion.
+    // Kênh cụ thể sẽ được ADC1_Read() ghi vào SQR3 trước mỗi lần đọc.
+    ADC1->SQR1 &= ~ADC_SQR1_L;
     
-    // Enable ADC1
+    // ADON bật ADC1. Từ đây có thể start conversion bằng bit SWSTART.
     ADC1->CR2 = ADC_CR2_ADON;
+}
+
+void MX_ADC2_Init(void)
+{
+    // ADC2 chỉ đọc joystick 2: PC5 là trục X (ADC2_IN15), PA0 là trục Y (ADC2_IN0).
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_ADC2_CLK_ENABLE();
+
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin = P2_JOY_X_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(P2_JOY_X_GPIO_Port, &GPIO_InitStruct);
+
+    GPIO_InitStruct.Pin = P2_JOY_Y_Pin;
+    HAL_GPIO_Init(P2_JOY_Y_GPIO_Port, &GPIO_InitStruct);
+
+    // ADC1 và ADC2 dùng chung ADC->CCR, nên giữ cùng bộ chia clock PCLK2 / 4.
+    ADC->CCR &= ~ADC_CCR_ADCPRE;
+    ADC->CCR |= ADC_CCR_ADCPRE_0;
+
+    // Đưa ADC2 về cấu hình polling đơn kênh giống ADC1.
+    ADC2->CR1 = 0;
+    ADC2->CR2 = 0;
+
+    // Channel 0 nằm trong SMPR2, channel 15 nằm trong SMPR1.
+    // Set sample time dài nhất để giá trị joystick ổn định hơn khi đọc từng mẫu.
+    ADC2->SMPR2 &= ~ADC_SMPR2_SMP0;
+    ADC2->SMPR2 |= ADC_SMPR2_SMP0;
+    ADC2->SMPR1 &= ~ADC_SMPR1_SMP15;
+    ADC2->SMPR1 |= ADC_SMPR1_SMP15;
+
+    // Sequence dài 1 conversion; ADC2_Read() thay đổi SQR3 để đọc X hoặc Y.
+    ADC2->SQR1 &= ~ADC_SQR1_L;
+
+    // Bật ADC2 sau khi cấu hình xong.
+    ADC2->CR2 = ADC_CR2_ADON;
 }
 
 uint16_t ADC1_Read(uint32_t channel)
 {
-    // Clear EOC flag before starting conversion
+    // Xóa cờ EOC cũ để vòng chờ bên dưới chỉ bắt kết quả của lần conversion mới.
     ADC1->SR &= ~ADC_SR_EOC;
-    // Configure channel
+    // SQR3 giữ kênh đầu tiên trong regular sequence; sequence chỉ có 1 kênh.
     ADC1->SQR3 = channel;
-    // Start conversion
+    // SWSTART bắt đầu chuyển đổi bằng phần mềm, không dùng timer trigger.
     ADC1->CR2 |= ADC_CR2_SWSTART;
-    // Wait for conversion complete
+    // Polling đến khi EOC = 1, tức dữ liệu mới đã sẵn sàng trong DR.
     while (!(ADC1->SR & ADC_SR_EOC))
     {
     }
-    // Return reading
+    // Đọc DR trả về giá trị 12-bit trong khoảng 0..4095.
     return ADC1->DR;
+}
+
+uint16_t ADC2_Read(uint32_t channel)
+{
+    // Quy trình giống ADC1_Read(): clear EOC, chọn channel, start, chờ EOC, đọc DR.
+    ADC2->SR &= ~ADC_SR_EOC;
+    ADC2->SQR3 = channel;
+    ADC2->CR2 |= ADC_CR2_SWSTART;
+    while (!(ADC2->SR & ADC_SR_EOC))
+    {
+    }
+    return ADC2->DR;
 }
 /* USER CODE END 0 */
 
@@ -235,8 +384,9 @@ int main(void)
   MX_TouchGFX_PreOSInit();
   /* USER CODE BEGIN 2 */
   MX_ADC1_Init();
-  Queue1Handle = osMessageQueueNew(8, sizeof(uint8_t), NULL);
-  Task03Handle = osThreadNew(StartTask03, NULL, &Task03_attributes);
+  MX_ADC2_Init();
+  MX_USART1_UART_Init();
+  UART1_WriteString("\r\nUART1 debug ready: 115200 8N1\r\n");
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -255,7 +405,8 @@ int main(void)
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
-  /* add queues, ... */
+  Joystick1QueueHandle = osMessageQueueNew(16, sizeof(uint8_t), NULL);
+  Joystick2QueueHandle = osMessageQueueNew(16, sizeof(uint8_t), NULL);
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -266,7 +417,7 @@ int main(void)
   GUI_TaskHandle = osThreadNew(TouchGFX_Task, NULL, &GUI_Task_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
+  Task03Handle = osThreadNew(StartTask03, NULL, &Task03_attributes);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -682,16 +833,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
-  /* Configure User Button Pin (PA0) as Input with Pull-Down */
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  GPIO_InitStruct.Pin = GPIO_PIN_0;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /* Configure Outside Button Pin (PG3) as Input with Pull-Up */
+  /* Configure external player buttons as active-low inputs. */
   __HAL_RCC_GPIOG_CLK_ENABLE();
-  GPIO_InitStruct.Pin = GPIO_PIN_3;
+  GPIO_InitStruct.Pin = P1_BUTTON_Pin | P2_BUTTON_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
@@ -1022,53 +1166,68 @@ void LCD_Delay(uint32_t Delay)
   HAL_Delay(Delay);
 }
 
+static uint8_t AxisCommand(uint16_t value, uint8_t lowCommand, uint8_t highCommand)
+{
+  // Đổi giá trị một trục analog thành mã di chuyển ngắn để gửi sang task giao diện.
+  if (value > 3000)
+  {
+    return highCommand;
+  }
+  if (value < 1000)
+  {
+    return lowCommand;
+  }
+  return 'N';
+}
+
+static void QueueJoystickCommand(osMessageQueueId_t queueHandle, uint8_t command)
+{
+  if ((command != 'N') && (queueHandle != NULL))
+  {
+    osMessageQueuePut(queueHandle, &command, 0, 0);
+  }
+}
+
 void StartTask03(void *argument)
 {
-  uint8_t command_x = 'N';
-  uint8_t command_y = 'N';
+  uint32_t debugCounter = 0;
 
   for(;;)
   {
-    // Read analog values from PA1 (ADC1 channel 1) and PA2 (ADC1 channel 2)
-    uint16_t adc_x = ADC1_Read(1);
-    uint16_t adc_y = ADC1_Read(2);
+    uint16_t p1x = ADC1_Read(P1_JOY_X_ADC_Channel);
+    uint16_t p1y = ADC1_Read(P1_JOY_Y_ADC_Channel);
+    uint16_t p2x = ADC2_Read(P2_JOY_X_ADC_Channel);
+    uint16_t p2y = ADC2_Read(P2_JOY_Y_ADC_Channel);
+    uint8_t p1xCommand = AxisCommand(p1x, 'L', 'R');
+    uint8_t p1yCommand = AxisCommand(p1y, 'U', 'D');
+    uint8_t p2xCommand = AxisCommand(p2x, 'L', 'R');
+    uint8_t p2yCommand = AxisCommand(p2y, 'U', 'D');
 
-    // Determine X command
-    if (adc_x > 3000)
-    {
-      command_x = 'R';
-    }
-    else if (adc_x < 1000)
-    {
-      command_x = 'L';
-    }
-    else
-    {
-      command_x = 'N';
-    }
+    // Mỗi joystick có queue riêng nên cả hai đều dùng chung mã L/R/U/D.
+    QueueJoystickCommand(Joystick1QueueHandle, p1xCommand);
+    QueueJoystickCommand(Joystick1QueueHandle, p1yCommand);
+    QueueJoystickCommand(Joystick2QueueHandle, p2xCommand);
+    QueueJoystickCommand(Joystick2QueueHandle, p2yCommand);
 
-    // Determine Y command
-    if (adc_y > 3000)
+    // In ADC định kỳ để debug phần cứng: giá trị giữa joystick thường gần 2048.
+    if (++debugCounter >= 4)
     {
-      command_y = 'D'; // Down
-    }
-    else if (adc_y < 1000)
-    {
-      command_y = 'U'; // Up
-    }
-    else
-    {
-      command_y = 'N';
-    }
-
-    // Send commands to Queue1Handle
-    if (command_x != 'N')
-    {
-      osMessageQueuePut(Queue1Handle, &command_x, 0, 0);
-    }
-    if (command_y != 'N')
-    {
-      osMessageQueuePut(Queue1Handle, &command_y, 0, 0);
+      debugCounter = 0;
+      UART1_WriteString("P1 X=");
+      UART1_WriteUInt(p1x);
+      UART1_WriteString(" Y=");
+      UART1_WriteUInt(p1y);
+      UART1_WriteString(" cmd=");
+      UART1_WriteCommand(p1xCommand);
+      UART1_WriteCommand(p1yCommand);
+      UART1_WriteString(" | P2 X=");
+      UART1_WriteUInt(p2x);
+      UART1_WriteString(" Y=");
+      UART1_WriteUInt(p2y);
+      UART1_WriteString(" cmd=");
+      UART1_WriteCommand(p2xCommand);
+      UART1_WriteCommand(p2yCommand);
+      UART1_WriteString("\r\n");
     }
 
     osDelay(50);
