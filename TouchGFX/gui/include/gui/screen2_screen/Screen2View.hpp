@@ -11,9 +11,16 @@ public:
     virtual ~Screen2View() {}
     virtual void setupScreen();
     virtual void tearDownScreen();
-    virtual void startGame() override;
     virtual void handleTickEvent() override;
-protected:
+    
+private:
+    // Các hàm hỗ trợ chọn chế độ bằng joystick và nút bấm ngoài.
+    void setSelectedMode(int mode);
+    void updateSelectionVisual();
+    void confirmSelection();
+
+    int selectedMode;
+    int inputCooldown;
 };
 
 #endif // SCREEN2VIEW_HPP

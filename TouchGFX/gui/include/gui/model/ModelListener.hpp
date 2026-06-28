@@ -15,7 +15,6 @@ public:
         model = m;
     }
 
-    virtual void joystickUpdated(bool left, bool right, bool up, bool down, bool button) {}
 protected:
     Model* model;
 };
