@@ -3,6 +3,8 @@
 
 #include <gui_generated/screen1_screen/Screen1ViewBase.hpp>
 #include <gui/screen1_screen/Screen1Presenter.hpp>
+
+// Code tự viết: Các widget và HAL cần cho HUD, ảnh game và chữ pixel tự vẽ.
 #include <touchgfx/widgets/Box.hpp>
 #include <touchgfx/widgets/Image.hpp>
 #include <touchgfx/containers/Container.hpp>
@@ -11,6 +13,7 @@
 #include <touchgfx/Color.hpp>
 #include <stdio.h>
 
+// Code tự viết: Font 3x5 tối giản để tự vẽ điểm số và thông báo game over.
 class PixelFont
 {
 public:
@@ -18,49 +21,114 @@ public:
     {
         switch (c)
         {
-            case 'A': case 'a': return 0x5BF7;
-            case 'B': case 'b': return 0x65B6;
-            case 'C': case 'c': return 0x7927;
-            case 'D': case 'd': return 0x6B6E;
-            case 'E': case 'e': return 0x79E7;
-            case 'F': case 'f': return 0x48E7;
-            case 'G': case 'g': return 0x7BE7;
-            case 'H': case 'h': return 0x55EF;
-            case 'I': case 'i': return 0x2492;
-            case 'J': case 'j': return 0x7289;
-            case 'K': case 'k': return 0x54CD;
-            case 'L': case 'l': return 0x7084;
-            case 'M': case 'm': return 0x55F5;
-            case 'N': case 'n': return 0x55F7;
-            case 'O': case 'o': return 0x7B6F;
-            case 'P': case 'p': return 0x41EF;
-            case 'Q': case 'q': return 0x7B6F;
-            case 'R': case 'r': return 0x5DEF;
-            case 'S': case 's': return 0x73E7;
-            case 'T': case 't': return 0x2497;
-            case 'U': case 'u': return 0x756D;
-            case 'V': case 'v': return 0x256D;
-            case 'W': case 'w': return 0x7B6D;
-            case 'X': case 'x': return 0x54CD;
-            case 'Y': case 'y': return 0x24AD;
-            case 'Z': case 'z': return 0x724F;
-            case ':': return 0x0410;
-            case ' ': return 0;
-            case '0': return 0x7B6F;
-            case '1': return 0x74B2;
-            case '2': return 0x79CF;
-            case '3': return 0x73CF;
-            case '4': return 0x13ED;
-            case '5': return 0x73E7;
-            case '6': return 0x7BE7;
-            case '7': return 0x124F;
-            case '8': return 0x7BEF;
-            case '9': return 0x73EF;
-            default: return 0;
+        case 'A':
+        case 'a':
+            return 0x5BF7;
+        case 'B':
+        case 'b':
+            return 0x65B6;
+        case 'C':
+        case 'c':
+            return 0x7927;
+        case 'D':
+        case 'd':
+            return 0x6B6E;
+        case 'E':
+        case 'e':
+            return 0x79E7;
+        case 'F':
+        case 'f':
+            return 0x48E7;
+        case 'G':
+        case 'g':
+            return 0x7BE7;
+        case 'H':
+        case 'h':
+            return 0x55EF;
+        case 'I':
+        case 'i':
+            return 0x2492;
+        case 'J':
+        case 'j':
+            return 0x7289;
+        case 'K':
+        case 'k':
+            return 0x54CD;
+        case 'L':
+        case 'l':
+            return 0x7084;
+        case 'M':
+        case 'm':
+            return 0x55F5;
+        case 'N':
+        case 'n':
+            return 0x55F7;
+        case 'O':
+        case 'o':
+            return 0x7B6F;
+        case 'P':
+        case 'p':
+            return 0x41EF;
+        case 'Q':
+        case 'q':
+            return 0x7B6F;
+        case 'R':
+        case 'r':
+            return 0x5DEF;
+        case 'S':
+        case 's':
+            return 0x73E7;
+        case 'T':
+        case 't':
+            return 0x2497;
+        case 'U':
+        case 'u':
+            return 0x756D;
+        case 'V':
+        case 'v':
+            return 0x256D;
+        case 'W':
+        case 'w':
+            return 0x7B6D;
+        case 'X':
+        case 'x':
+            return 0x54CD;
+        case 'Y':
+        case 'y':
+            return 0x24AD;
+        case 'Z':
+        case 'z':
+            return 0x724F;
+        case ':':
+            return 0x0410;
+        case ' ':
+            return 0;
+        case '0':
+            return 0x7B6F;
+        case '1':
+            return 0x74B2;
+        case '2':
+            return 0x79CF;
+        case '3':
+            return 0x73CF;
+        case '4':
+            return 0x13ED;
+        case '5':
+            return 0x73E7;
+        case '6':
+            return 0x7BE7;
+        case '7':
+            return 0x124F;
+        case '8':
+            return 0x7BEF;
+        case '9':
+            return 0x73EF;
+        default:
+            return 0;
         }
     }
 
-    static void drawText(const touchgfx::Widget& widget, const touchgfx::Rect& invalidatedArea, const char* text, int startX, int startY, int pixelSize, touchgfx::colortype color)
+    static void drawText(const touchgfx::Widget &widget, const touchgfx::Rect &invalidatedArea, const char *text, int startX, int startY, int pixelSize, touchgfx::colortype color)
     {
         int charW = 3;
         int charSpacing = 1 * pixelSize;
@@ -98,6 +166,7 @@ public:
     }
 };
 
+// Code tự viết: Widget HUD hiển thị và cập nhật điểm số trong lúc chơi.
 class ScoreWidget : public touchgfx::Widget
 {
 public:
@@ -113,7 +182,7 @@ public:
         invalidate();
     }
 
-    virtual void draw(const touchgfx::Rect& invalidatedArea) const override
+    virtual void draw(const touchgfx::Rect &invalidatedArea) const override
     {
         char buf[32];
         sprintf(buf, "SCORE:%d", score);
@@ -130,6 +199,7 @@ private:
     int score;
 };
 
+// Code tự viết: Widget phủ lên màn hình khi thua và hướng dẫn chơi lại.
 class GameOverWidget : public touchgfx::Widget
 {
 public:
@@ -144,9 +214,10 @@ public:
         invalidate();
     }
 
-    virtual void draw(const touchgfx::Rect& invalidatedArea) const override
+    virtual void draw(const touchgfx::Rect &invalidatedArea) const override
     {
-        if (!visible) return;
+        if (!visible)
+            return;
 
         // Draw semi-transparent black background
         touchgfx::Rect bgRect(0, 0, getWidth(), getHeight());
@@ -183,30 +254,36 @@ public:
     virtual ~Screen1View() {}
     virtual void setupScreen();
     virtual void tearDownScreen();
-    
+
+    // Code tự viết: TouchGFX gọi mỗi tick để đọc input và cập nhật game một người.
     virtual void handleTickEvent() override;
-    
-    // Joystick and key input handlers
+
+    // Code tự viết: Hỗ trợ điều khiển bằng joystick thật và bàn phím simulator.
     void handleJoystick(bool left, bool right, bool up, bool down, bool button);
     virtual void handleKeyEvent(uint8_t c);
 
 protected:
+    // Code tự viết: Kích thước các pool đối tượng dùng lại, tránh cấp phát động khi chơi.
     static const int ALIEN_ROWS = 5;
     static const int ALIEN_COLS = 7;
     static const int MAX_ALIEN_BULLETS = 8;
     static const int MAX_EXPLOSIONS = 8;
 
-    struct GridPos { int r; int c; };
+    struct GridPos
+    {
+        int r;
+        int c;
+    };
 
-    // Game state variables
+    // Code tự viết: Trạng thái đội hình alien.
     touchgfx::Image alienGrid[ALIEN_ROWS][ALIEN_COLS];
     bool alienActive[ALIEN_ROWS][ALIEN_COLS];
-    
-    // Alien bullets
+
+    // Code tự viết: Pool đạn alien.
     touchgfx::Image alienBullets[MAX_ALIEN_BULLETS];
     bool alienBulletActive[MAX_ALIEN_BULLETS];
 
-    // Explosion animations
+    // Code tự viết: Pool hiệu ứng nổ nhiều frame.
     struct Explosion
     {
         touchgfx::Container container;
@@ -215,7 +292,7 @@ protected:
         int tickCounter;
     } explosions[MAX_EXPLOSIONS];
 
-    // Score and Game Over
+    // Code tự viết: Điểm, máu, cooldown và trạng thái kết thúc game.
     ScoreWidget scoreWidget;
     GameOverWidget gameOverWidget;
     touchgfx::Container healthContainer;
@@ -228,7 +305,7 @@ protected:
     int alienDir;
     int alienMoveTick;
 
-    // Helper functions
+    // Code tự viết: Các hàm xử lý gameplay một người.
     void spawnBullet();
     void spawnAlienBullet();
     void spawnExplosion(int x, int y);
@@ -236,7 +313,7 @@ protected:
     void restartGame();
     void tickGame();
     void decreaseHealth();
-    void checkBulletAlienCollision(touchgfx::Widget& bullet);
+    void checkBulletAlienCollision(touchgfx::Widget &bullet);
 };
 
 #endif // SCREEN1VIEW_HPP

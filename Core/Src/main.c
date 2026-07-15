@@ -34,6 +34,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+/* ===== BẮT ĐẦU: copy từ bài lab3 - định nghĩa cấu hình SDRAM ===== */
 #define REFRESH_COUNT           ((uint32_t)1386)   /* SDRAM refresh counter */
 #define SDRAM_TIMEOUT           ((uint32_t)0xFFFF)
 
@@ -51,6 +52,7 @@
 #define SDRAM_MODEREG_OPERATING_MODE_STANDARD    ((uint16_t)0x0000)
 #define SDRAM_MODEREG_WRITEBURST_MODE_PROGRAMMED ((uint16_t)0x0000)
 #define SDRAM_MODEREG_WRITEBURST_MODE_SINGLE     ((uint16_t)0x0200)
+/* ===== KẾT THÚC: copy từ bài lab3 - định nghĩa cấu hình SDRAM ===== */
 
 #define I2C3_TIMEOUT_MAX                    0x3000 /*<! The value of the maximal timeout for I2C waiting loops */
 #define SPI5_TIMEOUT_MAX                    0x1000
@@ -114,6 +116,7 @@ void StartDefaultTask(void *argument);
 extern void TouchGFX_Task(void *argument);
 
 /* USER CODE BEGIN PFP */
+/* copy từ bài lab3 - hàm thực hiện chuỗi khởi tạo SDRAM ngoài */
 static void BSP_SDRAM_Initialization_Sequence(SDRAM_HandleTypeDef *hsdram, FMC_SDRAM_CommandTypeDef *Command);
 void StartTask03(void *argument);
 void MX_USART1_UART_Init(void);
@@ -156,6 +159,7 @@ static LCD_DrvTypeDef* LcdDrv;
 uint32_t I2c3Timeout = I2C3_TIMEOUT_MAX; /*<! Value of Timeout when I2C communication fails */
 uint32_t Spi5Timeout = SPI5_TIMEOUT_MAX; /*<! Value of Timeout when SPI communication fails */
 
+// khai báo gpio cho ngoại vi
 #define P1_JOY_X_Pin GPIO_PIN_5
 #define P1_JOY_X_GPIO_Port GPIOA
 #define P1_JOY_X_ADC_Channel 5U
@@ -170,6 +174,7 @@ uint32_t Spi5Timeout = SPI5_TIMEOUT_MAX; /*<! Value of Timeout when SPI communic
 #define P2_JOY_Y_GPIO_Port GPIOA
 #define P2_JOY_Y_ADC_Channel 0U
 
+// khởi tạo uart để debug trên hercules
 void MX_USART1_UART_Init(void)
 {
     // USART1 dùng PA9(TX) và PA10(RX) để in log ra Hercules, không dùng CubeMX để tránh regenerate TouchGFX.
@@ -725,7 +730,7 @@ static void MX_FMC_Init(void)
 {
 
   /* USER CODE BEGIN FMC_Init 0 */
-
+  /* ===== BẮT ĐẦU: copy từ bài lab3 - cấu hình FMC/SDRAM ===== */
   /* USER CODE END FMC_Init 0 */
 
   FMC_SDRAM_TimingTypeDef SdramTiming = {0};
@@ -768,6 +773,7 @@ static void MX_FMC_Init(void)
 
   /* Program the SDRAM external device */
   BSP_SDRAM_Initialization_Sequence(&hsdram1, &command);
+  /* ===== KẾT THÚC: copy từ bài lab3 - cấu hình FMC/SDRAM ===== */
   /* USER CODE END FMC_Init 2 */
 }
 
@@ -843,6 +849,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/* ===== BẮT ĐẦU: copy từ bài lab3 - chuỗi lệnh khởi tạo SDRAM ===== */
 /**
   * @brief  Perform the SDRAM external memory initialization sequence
   * @param  hsdram: SDRAM handle
@@ -903,6 +910,7 @@ static void BSP_SDRAM_Initialization_Sequence(SDRAM_HandleTypeDef *hsdram, FMC_S
   /* Set the device refresh rate */
   HAL_SDRAM_ProgramRefreshRate(hsdram, REFRESH_COUNT);
 }
+/* ===== KẾT THÚC: copy từ bài lab3 - chuỗi lệnh khởi tạo SDRAM ===== */
 
 /**
   * @brief  IOE Low Level Initialization.
@@ -1209,7 +1217,7 @@ void StartTask03(void *argument)
     QueueJoystickCommand(Joystick2QueueHandle, p2xCommand);
     QueueJoystickCommand(Joystick2QueueHandle, p2yCommand);
 
-    // In ADC định kỳ để debug phần cứng: giá trị giữa joystick thường gần 2048.
+    // In ADC định kỳ mỗi 200ms để debug phần cứng: giá trị giữa joystick thường gần 2048.
     if (++debugCounter >= 4)
     {
       debugCounter = 0;

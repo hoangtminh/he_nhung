@@ -2,21 +2,24 @@
 #include <touchgfx/Color.hpp>
 #include <images/BitmapDatabase.hpp>
 
+// Code tự viết: Kết nối màn game một người với queue joystick 1 và GPIO nút bắn.
 #ifndef SIMULATOR
 #include "main.h"
 #include "cmsis_os.h"
-extern "C" {
+extern "C"
+{
     extern osMessageQueueId_t Joystick1QueueHandle;
 }
 #endif
 
 namespace
 {
-// Giữ tàu ở nửa dưới màn hình để không đi lẫn vào vùng đội hình alien.
-static const int PLAYER_MIN_Y = 160;
+    // Code tự viết: Giữ tàu ở nửa dưới màn hình để không đi lẫn vào vùng alien.
+    static const int PLAYER_MIN_Y = 160;
 }
 
 Screen1View::Screen1View()
+    // Code tự viết: Khởi tạo toàn bộ trạng thái gameplay một người.
     : score(0), isGameOver(false), alienShootCooldown(45), bulletCooldown(0), alienDir(1), alienMoveTick(0), playerHealth(5)
 {
     // Initialize alien and bullet arrays
@@ -43,6 +46,8 @@ Screen1View::Screen1View()
 void Screen1View::setupScreen()
 {
     Screen1ViewBase::setupScreen();
+
+    // Code tự viết: Tạo HUD, alien, tàu, đạn và hiệu ứng nổ khi vào màn game.
 
     // Hide the original designer alien widget
     alien.setVisible(false);
@@ -129,6 +134,7 @@ void Screen1View::tearDownScreen()
     Screen1ViewBase::tearDownScreen();
 }
 
+// Code tự viết: Quy đổi trạng thái joystick thành di chuyển và bắn cho người chơi 1.
 void Screen1View::handleJoystick(bool left, bool right, bool up, bool down, bool button)
 {
     if (isGameOver)
@@ -199,13 +205,14 @@ void Screen1View::handleJoystick(bool left, bool right, bool up, bool down, bool
     tickGame();
 }
 
+// Code tự viết: Kích hoạt và đặt đạn người chơi tại đầu tàu.
 void Screen1View::spawnBullet()
 {
     if (!shipBullet.isVisible())
     {
         int bx = ship.getX() + (ship.getWidth() - shipBullet.getWidth()) / 2;
         int by = ship.getY() - shipBullet.getHeight();
-        
+
         shipBullet.moveTo(bx, by);
         shipBullet.setVisible(true);
         shipBullet.invalidate();
@@ -214,6 +221,7 @@ void Screen1View::spawnBullet()
 
 // spawnShip2Bullet removed
 
+// Code tự viết: Chọn alien còn sống và tạo đạn bắn xuống.
 void Screen1View::spawnAlienBullet()
 {
     // Find all active aliens
@@ -257,6 +265,7 @@ void Screen1View::spawnAlienBullet()
     }
 }
 
+// Code tự viết: Lấy một phần tử trong pool để phát hiệu ứng nổ.
 void Screen1View::spawnExplosion(int x, int y)
 {
     for (int i = 0; i < MAX_EXPLOSIONS; i++)
@@ -266,7 +275,7 @@ void Screen1View::spawnExplosion(int x, int y)
             // Center the 40x30 explosion container over the 39x27 alien
             int ex = x + (39 - 40) / 2;
             int ey = y + (27 - 30) / 2;
-            
+
             explosions[i].container.setPosition(ex, ey, 40, 30);
             explosions[i].image.setXY(0, 0);
             explosions[i].container.setVisible(true);
@@ -278,13 +287,12 @@ void Screen1View::spawnExplosion(int x, int y)
     }
 }
 
+// Code tự viết: Khóa gameplay và hiện thông báo thua.
 void Screen1View::gameOver()
 {
     isGameOver = true;
     ship.setVisible(false);
     ship.invalidate();
-
-
 
     // Reset and clean screen to prevent leftover pixels from bullets, aliens, and explosions
     shipBullet.setVisible(false);
@@ -317,12 +325,13 @@ void Screen1View::gameOver()
     gameOverWidget.setVisibleState(true);
 }
 
+// Code tự viết: Đặt lại toàn bộ trạng thái để bắt đầu ván mới.
 void Screen1View::restartGame()
 {
     isGameOver = false;
     score = 0;
     scoreWidget.setScore(0);
-    
+
     ship.moveTo(101, 270);
     ship.setVisible(true);
     ship.invalidate();
@@ -375,7 +384,8 @@ void Screen1View::restartGame()
     gameOverWidget.setVisibleState(false);
 }
 
-void Screen1View::checkBulletAlienCollision(touchgfx::Widget& bullet)
+// Code tự viết: Phát hiện đạn trúng alien, cộng điểm và tạo hiệu ứng nổ.
+void Screen1View::checkBulletAlienCollision(touchgfx::Widget &bullet)
 {
     touchgfx::Rect bulletRect = bullet.getRect();
     for (int r = 0; r < ALIEN_ROWS; r++)
@@ -406,6 +416,7 @@ void Screen1View::checkBulletAlienCollision(touchgfx::Widget& bullet)
     }
 }
 
+// Code tự viết: Cập nhật chuyển động, va chạm, alien và animation mỗi tick.
 void Screen1View::tickGame()
 {
     if (isGameOver)
@@ -498,8 +509,8 @@ void Screen1View::tickGame()
     {
         alienMoveTick = 0;
         bool hitEdge = false;
-        int step = 10;       // Horizontal speed (1 đoạn nhỏ)
-        int shiftDown = 10;  // Shift down step
+        int step = 10;      // Horizontal speed (1 đoạn nhỏ)
+        int shiftDown = 10; // Shift down step
 
         // Check if moving would hit the left/right screen edges
         for (int r = 0; r < ALIEN_ROWS; r++)
@@ -587,6 +598,7 @@ void Screen1View::tickGame()
     }
 }
 
+// Code tự viết: Trừ máu và chuyển sang game over khi hết máu.
 void Screen1View::decreaseHealth()
 {
     if (isGameOver)
@@ -610,6 +622,7 @@ void Screen1View::decreaseHealth()
     }
 }
 
+// Code tự viết: Ánh xạ bàn phím thành input khi chạy simulator.
 void Screen1View::handleKeyEvent(uint8_t c)
 {
     // Support playing in TouchGFX simulator using WASD / Spacebar
@@ -625,6 +638,7 @@ void Screen1View::handleKeyEvent(uint8_t c)
     }
 }
 
+// Code tự viết: Đọc queue joystick/nút bắn và điều phối gameplay mỗi tick TouchGFX.
 void Screen1View::handleTickEvent()
 {
 #ifndef SIMULATOR
@@ -633,18 +647,22 @@ void Screen1View::handleTickEvent()
     bool right = false;
     bool up = false;
     bool down = false;
-    
+
     // Màn 1 người chỉ đọc queue của joystick 1.
     while ((Joystick1QueueHandle != NULL) && (osMessageQueueGet(Joystick1QueueHandle, &cmd, NULL, 0) == osOK))
     {
-        if (cmd == 'L') left = true;
-        else if (cmd == 'R') right = true;
-        else if (cmd == 'U') up = true;
-        else if (cmd == 'D') down = true;
+        if (cmd == 'L')
+            left = true;
+        else if (cmd == 'R')
+            right = true;
+        else if (cmd == 'U')
+            up = true;
+        else if (cmd == 'D')
+            down = true;
     }
-    
+
     bool button1 = (HAL_GPIO_ReadPin(P1_BUTTON_GPIO_Port, P1_BUTTON_Pin) == GPIO_PIN_RESET);
-    
+
     if (isGameOver)
     {
         if (button1)
@@ -653,38 +671,46 @@ void Screen1View::handleTickEvent()
         }
         return;
     }
-    
+
     // Người chơi 1 di chuyển theo cả X/Y bằng joystick 1.
     int x1 = ship.getX();
     int y1 = ship.getY();
-    if (left) x1 -= 10;
-    if (right) x1 += 10;
-    if (up) y1 -= 10;
-    if (down) y1 += 10;
-    if (x1 < 0) x1 = 0;
-    if (x1 > 240 - ship.getWidth()) x1 = 240 - ship.getWidth();
-    if (y1 < PLAYER_MIN_Y) y1 = PLAYER_MIN_Y;
-    if (y1 > 320 - ship.getHeight()) y1 = 320 - ship.getHeight();
-    
+    if (left)
+        x1 -= 10;
+    if (right)
+        x1 += 10;
+    if (up)
+        y1 -= 10;
+    if (down)
+        y1 += 10;
+    if (x1 < 0)
+        x1 = 0;
+    if (x1 > 240 - ship.getWidth())
+        x1 = 240 - ship.getWidth();
+    if (y1 < PLAYER_MIN_Y)
+        y1 = PLAYER_MIN_Y;
+    if (y1 > 320 - ship.getHeight())
+        y1 = 320 - ship.getHeight();
+
     if ((x1 != ship.getX()) || (y1 != ship.getY()))
     {
         ship.moveTo(x1, y1);
         ship.invalidate();
     }
-    
+
     // Bullet shooting cooldown management
     if (bulletCooldown > 0)
     {
         bulletCooldown--;
     }
-    
+
     // Fire Ship 1 bullet
     if (button1 && bulletCooldown == 0)
     {
         spawnBullet();
         bulletCooldown = 15;
     }
-    
+
     // Call game physics update
     tickGame();
 #endif

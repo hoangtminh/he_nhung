@@ -11,16 +11,18 @@ public:
     virtual ~Screen2View() {}
     virtual void setupScreen();
     virtual void tearDownScreen();
+
+    // Code tự viết: TouchGFX gọi mỗi tick để đọc queue joystick và nút xác nhận.
     virtual void handleTickEvent() override;
-    
+
 private:
-    // Các hàm hỗ trợ chọn chế độ bằng joystick và nút bấm ngoài.
+    // Code tự viết: Chọn, tô sáng và xác nhận chế độ một/hai người chơi.
     void setSelectedMode(int mode);
     void updateSelectionVisual();
     void confirmSelection();
 
-    int selectedMode;
-    int inputCooldown;
+    int selectedMode;  // Chế độ đang được tô sáng: 1 hoặc 2 người.
+    int inputCooldown; // Chống một lần giữ joystick làm đổi lựa chọn liên tục.
 };
 
 #endif // SCREEN2VIEW_HPP

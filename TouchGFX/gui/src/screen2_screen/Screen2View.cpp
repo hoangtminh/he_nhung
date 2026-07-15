@@ -1,24 +1,27 @@
 #include <gui/screen2_screen/Screen2View.hpp>
 #include <touchgfx/Color.hpp>
 
+// Code tự viết: Kết nối View với hai queue joystick và GPIO nút bấm trên phần cứng.
 #ifndef SIMULATOR
 #include "main.h"
 #include "cmsis_os.h"
-extern "C" {
+extern "C"
+{
     extern osMessageQueueId_t Joystick1QueueHandle;
     extern osMessageQueueId_t Joystick2QueueHandle;
 }
 #endif
 
 Screen2View::Screen2View()
+    // Code tự viết: Khởi tạo trạng thái menu và bộ chống lặp input.
     : selectedMode(0), inputCooldown(0)
 {
-
 }
 
 void Screen2View::setupScreen()
 {
     Screen2ViewBase::setupScreen();
+    // Code tự viết: Mặc định tô sáng chế độ hai người khi vào màn hình.
     setSelectedMode(2);
 }
 
@@ -27,6 +30,7 @@ void Screen2View::tearDownScreen()
     Screen2ViewBase::tearDownScreen();
 }
 
+// Code tự viết: Kiểm tra và lưu chế độ người chơi được chọn.
 void Screen2View::setSelectedMode(int mode)
 {
     if (mode != 1 && mode != 2)
@@ -41,6 +45,7 @@ void Screen2View::setSelectedMode(int mode)
     }
 }
 
+// Code tự viết: Đổi màu hai nút để thể hiện lựa chọn hiện tại.
 void Screen2View::updateSelectionVisual()
 {
     // Màu vàng thể hiện chế độ đang được chọn bằng joystick, màu trắng là chế độ còn lại.
@@ -56,6 +61,7 @@ void Screen2View::updateSelectionVisual()
     twoPlayer.invalidate();
 }
 
+// Code tự viết: Chuyển sang màn game một hoặc hai người theo lựa chọn.
 void Screen2View::confirmSelection()
 {
     // Hai nút ngoài đều dùng để xác nhận chế độ hiện tại khi cảm ứng không còn hoạt động.
@@ -69,6 +75,7 @@ void Screen2View::confirmSelection()
     }
 }
 
+// Code tự viết: Đọc queue joystick, chống lặp và nhận nút xác nhận mỗi tick.
 void Screen2View::handleTickEvent()
 {
 #ifndef SIMULATOR
