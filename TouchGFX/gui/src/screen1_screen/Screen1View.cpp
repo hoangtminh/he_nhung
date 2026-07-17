@@ -121,6 +121,11 @@ void Screen1View::setupScreen()
     gameOverWidget.setVisibleState(false);
     add(gameOverWidget);
 
+    // Add VictoryWidget (centered)
+    victoryWidget.setPosition(40, 115, 160, 70);
+    victoryWidget.setVisibleState(false);
+    add(victoryWidget);
+
     // 1-player mode (Line 1: Y=270)
     ship.moveTo(101, 270);
     ship.setVisible(true);
@@ -325,6 +330,43 @@ void Screen1View::gameOver()
     gameOverWidget.setVisibleState(true);
 }
 
+void Screen1View::victory()
+{
+    isGameOver = true;
+    ship.setVisible(false);
+    ship.invalidate();
+
+    // Reset and clean screen to prevent leftover pixels from bullets, aliens, and explosions
+    shipBullet.setVisible(false);
+    shipBullet.invalidate();
+
+    for (int i = 0; i < MAX_ALIEN_BULLETS; i++)
+    {
+        alienBullets[i].setVisible(false);
+        alienBullets[i].invalidate();
+        alienBulletActive[i] = false;
+    }
+
+    for (int i = 0; i < MAX_EXPLOSIONS; i++)
+    {
+        explosions[i].container.setVisible(false);
+        explosions[i].container.invalidate();
+        explosions[i].frame = -1;
+    }
+
+    for (int r = 0; r < ALIEN_ROWS; r++)
+    {
+        for (int c = 0; c < ALIEN_COLS; c++)
+        {
+            alienActive[r][c] = false;
+            alienGrid[r][c].setVisible(false);
+            alienGrid[r][c].invalidate();
+        }
+    }
+
+    victoryWidget.setVisibleState(true, score);
+}
+
 // Code tự viết: Đặt lại toàn bộ trạng thái để bắt đầu ván mới.
 void Screen1View::restartGame()
 {
@@ -382,6 +424,7 @@ void Screen1View::restartGame()
     health.setXY(0, 0);
     health.invalidate();
     gameOverWidget.setVisibleState(false);
+    victoryWidget.setVisibleState(false);
 }
 
 // Code tự viết: Phát hiện đạn trúng alien, cộng điểm và tạo hiệu ứng nổ.
@@ -575,6 +618,31 @@ void Screen1View::tickGame()
     {
         checkBulletAlienCollision(shipBullet);
     }
+
+    // Check victory condition
+    bool anyAlienActive = false;
+    for (int r = 0; r < ALIEN_ROWS; r++)
+    {
+        for (int c = 0; c < ALIEN_COLS; c++)
+        {
+            if (alienActive[r][c])
+            {
+                anyAlienActive = true;
+                break;
+            }
+        }
+        if (anyAlienActive)
+        {
+            break;
+        }
+    }
+
+    if (!anyAlienActive)
+    {
+        victory();
+        return;
+    }
+
     // 7. Collision detection: Ship colliding with active aliens
     for (int r = 0; r < ALIEN_ROWS; r++)
     {

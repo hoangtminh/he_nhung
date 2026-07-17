@@ -157,6 +157,11 @@ void Screen3View::setupScreen()
     gameOverWidget.setVisibleState(false);
     add(gameOverWidget);
 
+    // Thêm lớp Victory ở giữa màn hình, ban đầu ẩn.
+    victoryWidget.setPosition(40, 115, 160, 70);
+    victoryWidget.setVisibleState(false);
+    add(victoryWidget);
+
     // Đặt hai tàu ở vị trí khác nhau để không chồng lên nhau khi bắt đầu.
     ship1.moveTo(50, 270);
     ship1.setVisible(true);
@@ -318,6 +323,46 @@ void Screen3View::gameOver()
     gameOverWidget.setVisibleState(true);
 }
 
+void Screen3View::victory()
+{
+    isGameOver = true;
+    ship1.setVisible(false);
+    ship1.invalidate();
+    ship2.setVisible(false);
+    ship2.invalidate();
+
+    shipBullet.setVisible(false);
+    shipBullet.invalidate();
+    ship2Bullet.setVisible(false);
+    ship2Bullet.invalidate();
+
+    for (int i = 0; i < MAX_ALIEN_BULLETS; i++)
+    {
+        alienBullets[i].setVisible(false);
+        alienBullets[i].invalidate();
+        alienBulletActive[i] = false;
+    }
+
+    for (int i = 0; i < MAX_EXPLOSIONS; i++)
+    {
+        explosions[i].container.setVisible(false);
+        explosions[i].container.invalidate();
+        explosions[i].frame = -1;
+    }
+
+    for (int r = 0; r < ALIEN_ROWS; r++)
+    {
+        for (int c = 0; c < ALIEN_COLS; c++)
+        {
+            alienActive[r][c] = false;
+            alienGrid[r][c].setVisible(false);
+            alienGrid[r][c].invalidate();
+        }
+    }
+
+    victoryWidget.setVisibleState(true, score);
+}
+
 // Code tự viết: Đặt lại trạng thái của cả hai người chơi cho ván mới.
 void Screen3View::restartGame()
 {
@@ -384,6 +429,7 @@ void Screen3View::restartGame()
     health.setXY(0, 0);
     health.invalidate();
     gameOverWidget.setVisibleState(false);
+    victoryWidget.setVisibleState(false);
 }
 
 // Code tự viết: Phát hiện đạn của một trong hai tàu trúng alien và cộng điểm.
@@ -607,6 +653,30 @@ void Screen3View::tickGame()
     if (ship2Bullet.isVisible())
     {
         checkBulletAlienCollision(ship2Bullet);
+    }
+
+    // Check victory condition
+    bool anyAlienActive = false;
+    for (int r = 0; r < ALIEN_ROWS; r++)
+    {
+        for (int c = 0; c < ALIEN_COLS; c++)
+        {
+            if (alienActive[r][c])
+            {
+                anyAlienActive = true;
+                break;
+            }
+        }
+        if (anyAlienActive)
+        {
+            break;
+        }
+    }
+
+    if (!anyAlienActive)
+    {
+        victory();
+        return;
     }
 
     // 7. Alien chạm vào bất kỳ tàu nào thì mất máu và alien đó biến mất.

@@ -247,6 +247,61 @@ private:
     bool visible;
 };
 
+// Code tự viết: Widget phủ lên màn hình khi thắng và hiển thị điểm số.
+class VictoryWidget : public touchgfx::Widget
+{
+public:
+    VictoryWidget() : visible(false), score(0)
+    {
+        setPosition(40, 115, 160, 70); // Kích thước đủ lớn để hiển thị 3 dòng chữ
+    }
+
+    void setVisibleState(bool v, int s = 0)
+    {
+        visible = v;
+        score = s;
+        invalidate();
+    }
+
+    virtual void draw(const touchgfx::Rect &invalidatedArea) const override
+    {
+        if (!visible)
+            return;
+
+        // Vẽ nền đen mờ phía sau chữ Victory
+        touchgfx::Rect bgRect(0, 0, getWidth(), getHeight());
+        touchgfx::Rect drawBg = bgRect & invalidatedArea;
+        if (!drawBg.isEmpty())
+        {
+            touchgfx::Rect tempBg = drawBg;
+            translateRectToAbsolute(tempBg);
+            touchgfx::HAL::lcd().fillRect(tempBg, touchgfx::Color::getColorFromRGB(0, 0, 0), 200);
+        }
+
+        // Vẽ dòng VICTORY màu xanh lá
+        touchgfx::colortype greenColor = touchgfx::Color::getColorFromRGB(0, 255, 0);
+        PixelFont::drawText(*this, invalidatedArea, "VICTORY", 52, 10, 2, greenColor);
+
+        // Vẽ điểm số của người chơi
+        char scoreBuf[32];
+        sprintf(scoreBuf, "SCORE:%d", score);
+        touchgfx::colortype whiteColor = touchgfx::Color::getColorFromRGB(255, 255, 255);
+        PixelFont::drawText(*this, invalidatedArea, scoreBuf, 44, 32, 1, whiteColor);
+
+        // Vẽ hướng dẫn bấm nút để chơi lại
+        PixelFont::drawText(*this, invalidatedArea, "PRESS BTN TO RESTART", 8, 50, 1, whiteColor);
+    }
+
+    virtual touchgfx::Rect getSolidRect() const override
+    {
+        return touchgfx::Rect(0, 0, 0, 0);
+    }
+
+private:
+    bool visible;
+    int score;
+};
+
 class Screen1View : public Screen1ViewBase
 {
 public:
@@ -295,6 +350,7 @@ protected:
     // Code tự viết: Điểm, máu, cooldown và trạng thái kết thúc game.
     ScoreWidget scoreWidget;
     GameOverWidget gameOverWidget;
+    VictoryWidget victoryWidget;
     touchgfx::Container healthContainer;
     int score;
     bool isGameOver;
@@ -310,6 +366,7 @@ protected:
     void spawnAlienBullet();
     void spawnExplosion(int x, int y);
     void gameOver();
+    void victory();
     void restartGame();
     void tickGame();
     void decreaseHealth();
